@@ -47,9 +47,29 @@ window.Store = (function () {
     });
   }
 
+  /* גישה לאחסון הדפדפן. בחלון פרטי או כשאחסון חסום הקריאות זורקות שגיאה,
+     ולכן כל גישה עוברת דרך העטיפות האלה והמערכת ממשיכה לעבוד גם בלעדיהן. */
+  function readStorage(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function writeStorage(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (err) {
+      console.warn("שמירה מקומית נכשלה", err);
+      return false;
+    }
+  }
+
   function settings() {
     try {
-      return JSON.parse(localStorage.getItem(`${cfg.storageKey}_settings`) || "{}");
+      return JSON.parse(readStorage(`${cfg.storageKey}_settings`) || "{}");
     } catch (err) {
       return {};
     }
@@ -57,7 +77,7 @@ window.Store = (function () {
 
   function saveSettings(patch) {
     const next = { ...settings(), ...patch };
-    localStorage.setItem(`${cfg.storageKey}_settings`, JSON.stringify(next));
+    writeStorage(`${cfg.storageKey}_settings`, JSON.stringify(next));
     return next;
   }
 
@@ -70,14 +90,24 @@ window.Store = (function () {
   }
 
   /* --------------------------------------------------------- seed / local */
+  /**
+   * פורש את קובץ הזינוך. הוא מקודד בצורה דחוסה - סוכנים ולקוחות מופיעים
+   * פעם אחת, וכל תנועת מכירה מפנה אליהם לפי מיקום ברשימה:
+   *   [מיקום הלקוח, מיקום המשלם, מיקום הסוכן, שנה, חודש, סכום]
+   */
   function seedFromDataset() {
     const seed = window.GADOT_DATASET;
-    state.agents = seed.agents.slice();
-    state.parties = new Map(seed.parties.map((p) => [p.no, { ...p, profile: emptyProfile() }]));
-    state.sales = new Map(seed.sales.map((s) => [
-      saleKey(s.c, s.p, s.agent, s.y, s.m),
-      { c: s.c, p: s.p, agent: s.agent, y: s.y, m: s.m, a: s.a, source: "erp" },
+    state.agents = seed.agents.map(([no, name]) => ({ no, name }));
+    state.parties = new Map(seed.parties.map(([no, name]) => [
+      no, { no, name, profile: emptyProfile() },
     ]));
+    const partyNo = seed.parties.map(([no]) => no);
+    const agentNo = seed.agents.map(([no]) => no);
+    state.sales = new Map(seed.sales.map(([c, p, agent, y, m, a]) => {
+      const sale = { c: partyNo[c], p: partyNo[p], agent: agentNo[agent],
+                     y, m, a, source: "erp" };
+      return [saleKey(sale.c, sale.p, sale.agent, y, m), sale];
+    }));
     state.targets = new Map();
     state.activities = [];
   }
@@ -105,11 +135,7 @@ window.Store = (function () {
   }
 
   function persistLocal() {
-    try {
-      localStorage.setItem(cfg.storageKey, JSON.stringify(serialize()));
-    } catch (err) {
-      console.warn("שמירה מקומית נכשלה", err);
-    }
+    writeStorage(cfg.storageKey, JSON.stringify(serialize()));
   }
 
   /* ------------------------------------------------------------ supabase */
@@ -201,7 +227,7 @@ window.Store = (function () {
     },
 
     async init() {
-      const saved = localStorage.getItem(cfg.storageKey);
+      const saved = readStorage(cfg.storageKey);
       if (saved) {
         try {
           hydrate(JSON.parse(saved));

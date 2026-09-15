@@ -48,11 +48,21 @@ def main():
     agents, parties, sales = build(sources)
 
     years = sorted({s["y"] for s in sales})
+    # Compact encoding: parties and agents are listed once, and every sale refers
+    # to them by index. Cuts the payload the browser downloads by about two
+    # thirds compared with one object per sale.
+    agent_list = sorted(agents.items())
+    party_list = sorted(parties.items())
+    agent_at = {no: i for i, (no, _) in enumerate(agent_list)}
+    party_at = {no: i for i, (no, _) in enumerate(party_list)}
     dataset = {
         "generated_from": "GADOT ניתוח מכירות (ת.משלוח) - מחירים",
-        "agents": [{"no": no, "name": name} for no, name in sorted(agents.items())],
-        "parties": [{"no": no, "name": name} for no, name in sorted(parties.items())],
-        "sales": sales,
+        "format": "agents/parties: [no, name]; "
+                  "sales: [customerIndex, payerIndex, agentIndex, year, month, amount]",
+        "agents": [[no, name] for no, name in agent_list],
+        "parties": [[no, name] for no, name in party_list],
+        "sales": [[party_at[s["c"]], party_at[s["p"]], agent_at[s["agent"]],
+                   s["y"], s["m"], s["a"]] for s in sales],
         "years": years,
         "last_closed_month": {str(y): max(s["m"] for s in sales if s["y"] == y) for y in years},
     }
