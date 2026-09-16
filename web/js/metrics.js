@@ -92,18 +92,21 @@ window.Metrics = (function () {
     const top10 = active.slice(0, 10);
 
     // לקוחות בסיכון: קנו בשנה שעברה, וירדו מהותית או נעלמו השנה.
-    const atRisk = customers
-      .filter((c) => c.priorYtd >= 5000 && (c.ytd === 0 || (c.changePct !== null && c.changePct <= -35)))
-      .sort((a, b) => a.delta - b.delta);
+    // הסף של 5,000 ₪ מסנן לקוחות מזדמנים שירידה אצלם אינה אומרת דבר.
+    customers.forEach((c) => {
+      c.atRisk = c.priorYtd >= 5000
+        && (c.ytd === 0 || (c.changePct !== null && c.changePct <= -35));
+      // שקט על הקו: פעיל השנה, אך לא קנה בחודשיים האחרונים שנסגרו.
+      c.isQuiet = c.ytd > 0 && c.monthsSinceSale !== null && c.monthsSinceSale >= 2;
+    });
+
+    const atRisk = customers.filter((c) => c.atRisk).sort((a, b) => a.delta - b.delta);
 
     const growing = customers
       .filter((c) => c.delta > 0 && c.priorYtd > 0)
       .sort((a, b) => b.delta - a.delta);
 
-    // לקוחות שקטים: היו פעילים השנה אך לא קנו בחודשיים האחרונים שנסגרו.
-    const quiet = active
-      .filter((c) => c.monthsSinceSale !== null && c.monthsSinceSale >= 2)
-      .sort((a, b) => b.ytd - a.ytd);
+    const quiet = customers.filter((c) => c.isQuiet).sort((a, b) => b.ytd - a.ytd);
 
     const monthsCur = monthly({ year, agent });
     const monthsPrior = monthly({ year: priorYear, agent });

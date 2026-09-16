@@ -1,34 +1,46 @@
 /* ============================================================================
-   מסך לקוחות: טבלה אחת שאפשר לחפש, למיין, לסנן, ולפתוח ממנה כרטיס לקוח.
+   לקוחות — טבלה אחת שאפשר לחפש, לסנן ולמיין, ולפתוח ממנה כרטיס לקוח.
    ========================================================================== */
 window.ViewCustomers = (function () {
-  const ui = { search: "", status: "all", sort: "ytd", dir: -1, onlyActive: false };
-
   const STATUS = {
-    active: "פעיל", watch: "במעקב", dormant: "רדום", lost: "אבוד", prospect: "פוטנציאלי",
+    active: { label: "פעיל", tone: "up" },
+    watch: { label: "במעקב", tone: "warn" },
+    dormant: { label: "רדום", tone: "warn" },
+    lost: { label: "אבוד", tone: "down" },
+    prospect: { label: "פוטנציאלי", tone: "accent" },
+  };
+
+  const ui = { search: "", status: "all", scope: "all", sort: "ytd", dir: -1 };
+
+  const SCOPES = {
+    all: { label: "הכול", test: () => true },
+    active: { label: `קנו השנה`, test: (c) => c.ytd > 0 },
+    risk: { label: "דורש טיפול", test: (c) => c.atRisk },
+    quiet: { label: "שקטים", test: (c) => c.isQuiet },
+    new: { label: "חדשים", test: (c) => c.isNew },
   };
 
   function filtered(view) {
     const term = ui.search.trim().toLowerCase();
-    let list = view.customers.filter((c) => {
-      if (ui.onlyActive && c.ytd <= 0) return false;
+    const list = view.customers.filter((c) => {
+      if (!SCOPES[ui.scope].test(c)) return false;
       if (ui.status !== "all" && (c.profile.status || "active") !== ui.status) return false;
       if (!term) return true;
       return c.name.toLowerCase().includes(term) || c.no.includes(term);
     });
     const key = ui.sort;
-    list = list.slice().sort((a, b) => {
-      if (key === "name") return a.name.localeCompare(b.name, "he") * ui.dir * -1;
+    return list.sort((a, b) => {
+      if (key === "name") return a.name.localeCompare(b.name, "he") * -ui.dir;
       const av = a[key] === null ? -Infinity : a[key];
       const bv = b[key] === null ? -Infinity : b[key];
       return (av - bv) * ui.dir;
     });
-    return list;
   }
 
-  function header(label, key, extra = "") {
-    const active = ui.sort === key ? (ui.dir === -1 ? " ↓" : " ↑") : "";
-    return `<th class="sortable ${extra}" data-sort="${key}">${label}${active}</th>`;
+  function th(label, key, cls = "") {
+    const arrow = ui.sort === key
+      ? `<span class="sort-arrow">${ui.dir === -1 ? "↓" : "↑"}</span>` : "";
+    return `<th class="sortable ${cls}" data-sort="${key}">${label}${arrow}</th>`;
   }
 
   function render(root, ctx) {
@@ -36,66 +48,78 @@ window.ViewCustomers = (function () {
     const list = filtered(view);
     const shown = Metrics.sum(list.map((c) => c.ytd));
 
-    root.innerHTML = `
-      <div class="card">
-        <div class="toolbar">
-          <input type="search" id="cust-search" placeholder="חיפוש לפי שם או מספר לקוח"
+    root.innerHTML = UI.card("", {
+      flush: true,
+      body: `
+      <div class="toolbar">
+        <label class="search">
+          ${UI.icon("search", 15)}
+          <input class="input" type="search" id="cust-search" placeholder="חיפוש לפי שם או מספר"
                  value="${Fmt.escape(ui.search)}">
-          <label class="field"><span>סטטוס</span>
-            <select id="cust-status">
-              <option value="all">הכול</option>
-              ${Object.entries(STATUS).map(([k, v]) => (
-                `<option value="${k}" ${ui.status === k ? "selected" : ""}>${v}</option>`
-              )).join("")}
-            </select>
-          </label>
-          <label class="field">
-            <input type="checkbox" id="cust-active" ${ui.onlyActive ? "checked" : ""}>
-            <span>רק מי שקנה ב-${view.year}</span>
-          </label>
-          <button class="btn btn-primary" id="cust-add">+ לקוח חדש</button>
+        </label>
+        <div class="seg">
+          ${Object.entries(SCOPES).map(([key, s]) => `
+            <button data-scope="${key}" class="${ui.scope === key ? "is-active" : ""}">${
+              s.label}</button>`).join("")}
+        </div>
+        <label class="field">
+          <span>סטטוס</span>
+          <select class="select" id="cust-status">
+            <option value="all">הכול</option>
+            ${Object.entries(STATUS).map(([k, v]) => `
+              <option value="${k}" ${ui.status === k ? "selected" : ""}>${v.label}</option>`
+            ).join("")}
+          </select>
+        </label>
+        <div class="spacer row-actions">
           <span class="hint">${Fmt.number(list.length)} לקוחות · ${Fmt.money(shown)}</span>
+          <button class="btn btn-primary" id="cust-add">${UI.icon("plus", 15)} לקוח חדש</button>
         </div>
+      </div>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                ${header("לקוח", "name")}
-                ${header(`${view.year} עד כה`, "ytd", "num")}
-                ${header(`${view.priorYear} תקופה מקבילה`, "priorYtd", "num")}
-                ${header("שינוי", "changePct", "num")}
-                <th class="num">מגמה חודשית</th>
-                ${header("חודשי פעילות", "activeMonths", "num")}
-                ${header("מכירה אחרונה", "lastActive", "num")}
-                <th>סטטוס</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              ${list.map((c) => `
-                <tr class="row-link" data-no="${Fmt.escape(c.no)}">
-                  <td class="name-cell">${Fmt.escape(c.name)}
-                    <span class="sub">${Fmt.escape(c.no)}${
-                      c.payers.length > 1 ? ` · ${c.payers.length} משלמים` : ""}</span></td>
-                  <td class="num">${Fmt.money(c.ytd)}</td>
-                  <td class="num">${Fmt.money(c.priorYtd)}</td>
-                  <td class="num">${c.changePct === null
-                    ? '<span class="badge brand">חדש</span>'
-                    : `<span class="delta ${c.changePct >= 0 ? "up" : "down"}">${
-                        Fmt.percent(c.changePct, 0)}</span>`}</td>
-                  <td class="num">${Charts.sparkline(c.months)}</td>
-                  <td class="num">${c.activeMonths}</td>
-                  <td class="num">${c.lastActive ? Fmt.monthShort(c.lastActive) : "—"}</td>
-                  <td><span class="badge ${badgeClass(c)}">${
-                    STATUS[c.profile.status] || STATUS.active}</span></td>
-                  <td class="num"><button class="btn btn-sm" data-open="${
-                    Fmt.escape(c.no)}">פתיחה</button></td>
-                </tr>`).join("") || '<tr><td colspan="9" class="empty">לא נמצאו לקוחות</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>`;
+      <div class="table-wrap" style="max-height:calc(100vh - 190px)">
+        <table>
+          <thead>
+            <tr>
+              ${th("לקוח", "name")}
+              ${th(`${view.year} עד כה`, "ytd", "num")}
+              ${th(`${view.priorYear} מקביל`, "priorYtd", "num")}
+              ${th("שינוי", "changePct", "num")}
+              <th class="num">מגמה חודשית</th>
+              ${th("חודשים פעילים", "activeMonths", "num")}
+              ${th("מכירה אחרונה", "lastActive", "num")}
+              <th>סטטוס</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.map((c) => {
+              const status = STATUS[c.profile.status] || STATUS.active;
+              return `<tr class="row-link" data-no="${Fmt.escape(c.no)}">
+                <td>
+                  <div class="cell-party">
+                    ${UI.avatar(c.name)}
+                    <div>
+                      <div class="cell-title ellipsis">${Fmt.escape(c.name)}</div>
+                      <div class="cell-sub">${Fmt.escape(c.no)}${
+                        c.payers.length > 1 ? ` · ${c.payers.length} משלמים` : ""}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="num" style="font-weight:600">${Fmt.money(c.ytd)}</td>
+                <td class="num" style="color:var(--muted)">${Fmt.money(c.priorYtd)}</td>
+                <td class="num">${UI.delta(c.changePct)}</td>
+                <td class="num">${Charts.sparkline(c.months)}</td>
+                <td class="num">${c.activeMonths}</td>
+                <td class="num">${c.lastActive ? Fmt.monthShort(c.lastActive) : "—"}</td>
+                <td><span class="badge ${status.tone}">${status.label}</span></td>
+              </tr>`;
+            }).join("") || `<tr><td colspan="8">${
+              UI.empty("לא נמצאו לקוחות", "אפשר לנקות את החיפוש או לשנות את הסינון.", "search")
+            }</td></tr>`}
+          </tbody>
+        </table>
+      </div>`,
+    });
 
     const search = root.querySelector("#cust-search");
     search.addEventListener("input", () => {
@@ -105,64 +129,60 @@ window.ViewCustomers = (function () {
       box.focus();
       box.setSelectionRange(box.value.length, box.value.length);
     });
+
     root.querySelector("#cust-status").addEventListener("change", (e) => {
       ui.status = e.target.value;
       render(root, ctx);
     });
-    root.querySelector("#cust-active").addEventListener("change", (e) => {
-      ui.onlyActive = e.target.checked;
+    UI.on(root, "[data-scope]", "click", (e) => {
+      ui.scope = e.currentTarget.dataset.scope;
       render(root, ctx);
     });
-    root.querySelector("#cust-add").addEventListener("click", () => addCustomer(ctx));
-
-    root.querySelectorAll("th.sortable").forEach((th) => th.addEventListener("click", () => {
-      const key = th.dataset.sort;
+    root.querySelector("#cust-add").addEventListener("click", () => addCustomer());
+    UI.on(root, "th.sortable", "click", (e) => {
+      const key = e.currentTarget.dataset.sort;
       ui.dir = ui.sort === key ? -ui.dir : -1;
       ui.sort = key;
       render(root, ctx);
-    }));
-
-    root.querySelectorAll("tr[data-no]").forEach((tr) => tr.addEventListener("click", () => {
-      App.openCustomer(tr.dataset.no);
-    }));
+    });
+    UI.on(root, "tr[data-no]", "click", (e) => App.openCustomer(e.currentTarget.dataset.no));
   }
 
-  function badgeClass(c) {
-    const status = c.profile.status || "active";
-    if (status === "lost") return "down";
-    if (status === "watch" || status === "dormant") return "warn";
-    if (status === "prospect") return "brand";
-    return "up";
-  }
-
-  function addCustomer(ctx) {
-    App.openDrawer(`
-      <div class="drawer-head">
-        <h2>לקוח חדש</h2>
-        <button class="btn btn-sm" data-close-drawer>סגירה</button>
-      </div>
-      <div class="card">
-        <div class="form-grid">
-          <label class="stacked"><span>מספר לקוח</span><input id="new-no" inputmode="numeric"></label>
-          <label class="stacked"><span>שם הלקוח</span><input id="new-name"></label>
-        </div>
-        <p class="hint">אחרי ההוספה אפשר לרשום מיד סכומים במסך "טבלת חודשים".</p>
-        <div class="form-actions" style="margin-top:12px">
-          <button class="btn btn-primary" id="new-save">הוספה</button>
-        </div>
-      </div>`, (panel) => {
-      panel.querySelector("#new-save").addEventListener("click", async () => {
-        const no = panel.querySelector("#new-no").value.trim();
-        const name = panel.querySelector("#new-name").value.trim();
-        try {
-          await Store.addParty(no, name);
-          App.toast(`הלקוח ${name || no} נוסף`);
-          App.closeDrawer();
-          App.openCustomer(no);
-        } catch (err) {
-          App.toast(err.message);
-        }
-      });
+  function addCustomer() {
+    App.openDrawer({
+      title: "לקוח חדש",
+      body: UI.card("", {
+        body: `
+          <div class="form-grid">
+            <label class="stacked"><span>מספר לקוח</span>
+              <input class="input" id="new-no" inputmode="numeric" placeholder="202500000"></label>
+            <label class="stacked"><span>שם הלקוח</span>
+              <input class="input" id="new-name" placeholder="שם החברה"></label>
+          </div>
+          <p class="hint" style="margin-top:12px">
+            אחרי ההוספה אפשר לרשום סכומים מיד במסך "טבלת חודשים".</p>
+          <div class="row-actions" style="margin-top:14px">
+            <button class="btn btn-primary" id="new-save">הוספה</button>
+          </div>`,
+      }),
+      onReady(panel) {
+        const save = async () => {
+          const no = panel.querySelector("#new-no").value.trim();
+          const name = panel.querySelector("#new-name").value.trim();
+          try {
+            Store.addParty(no, name);
+            App.toast(`${name || no} נוסף לתיק`);
+            App.openCustomer(no);
+          } catch (err) {
+            App.toast(err.message, "down");
+          }
+        };
+        panel.querySelector("#new-save").addEventListener("click", save);
+        panel.querySelector("#new-name").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") save();
+        });
+        panel.querySelector("#new-no").focus();
+      },
     });
   }
 

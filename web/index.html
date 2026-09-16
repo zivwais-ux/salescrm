@@ -3,54 +3,50 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>ניהול מכירות · בני ויסמן</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231d4ed8'/><text x='16' y='23' font-size='19' font-family='sans-serif' fill='white' text-anchor='middle'>%E2%82%AA</text></svg>">
+  <meta name="color-scheme" content="light dark">
+  <title>ניהול מכירות · גדות מסופים</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b4ee0'/><path d='M9 21h14M12 21V12M16 21V9M20 21v-6' stroke='white' stroke-width='2.2' stroke-linecap='round'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
+  <script>
+    // נקבע לפני הציור הראשון כדי שלא תהיה הבזקה של המצב הלא נכון.
+    try {
+      var saved = localStorage.getItem("gadot_theme");
+      var dark = saved ? saved === "dark"
+                       : matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    } catch (e) { document.documentElement.dataset.theme = "light"; }
+  </script>
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">
-    <span class="brand-mark">₪</span>
-    <div>
-      <h1>ניהול מכירות</h1>
-      <p id="brand-sub">גדות מסופים · סניף 06</p>
-    </div>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="btn btn-icon btn-ghost only-mobile" id="menu-btn" aria-label="תפריט"></button>
+      <div>
+        <div class="page-title" id="page-title">לוח בקרה</div>
+        <div class="page-sub" id="page-sub"></div>
+      </div>
+      <div class="topbar-tools" id="topbar-tools"></div>
+    </header>
+
+    <main class="view" id="view"></main>
   </div>
+</div>
 
-  <div class="topbar-controls">
-    <label class="field">
-      <span>שנה</span>
-      <select id="year-select"></select>
-    </label>
-    <label class="field">
-      <span>סוכן</span>
-      <select id="agent-select"></select>
-    </label>
-    <button class="btn" id="btn-export">ייצוא לאקסל</button>
-    <span class="sync-pill" id="sync-pill" title="מצב שמירה">מקומי</span>
-  </div>
-</header>
-
-<nav class="tabs" id="tabs">
-  <button class="tab is-active" data-view="dashboard">לוח בקרה</button>
-  <button class="tab" data-view="customers">לקוחות</button>
-  <button class="tab" data-view="grid">טבלת חודשים</button>
-  <button class="tab" data-view="activity">משימות ופעילות</button>
-  <button class="tab" data-view="settings">הגדרות וסנכרון</button>
-</nav>
-
-<main id="view"></main>
-
-<aside class="drawer" id="drawer" hidden>
-  <div class="drawer-backdrop" data-close-drawer></div>
-  <section class="drawer-panel" id="drawer-panel" role="dialog" aria-modal="true"></section>
-</aside>
-
-<div class="toast" id="toast" hidden></div>
+<div id="drawer-root"></div>
+<div id="palette-root"></div>
+<div class="toast-stack" id="toast-stack"></div>
 
 <script src="data/dataset.js"></script>
 <script src="js/config.js"></script>
 <script src="js/format.js"></script>
+<script src="js/ui.js"></script>
 <script src="js/store.js"></script>
 <script src="js/metrics.js"></script>
 <script src="js/charts.js"></script>

@@ -1,5 +1,5 @@
 /* ============================================================================
-   אקסל: ייצוא, ייבוא, ועדכון אוטומטי "מאחורי הקלעים".
+   אקסל: ייצוא וייבוא.
 
    הגיליונות נבנים באותו מבנה של הדוח המקורי, כדי שהקובץ יישאר מוכר:
      • "ניתוח מכירות"  - לקוח מול חודשים, לכל שנה גיליון.
@@ -170,17 +170,6 @@ window.Excel = (function () {
     return `sales-analysis-${new Date().toISOString().slice(0, 10)}.xlsx`;
   }
 
-  function saveAs(blob, name) {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = name;
-    document.body.appendChild(link);
-    link.click();
-    // The anchor has to outlive the click, or the browser drops the chosen name.
-    setTimeout(() => { link.remove(); URL.revokeObjectURL(url); }, 2000);
-  }
-
   return {
     /**
      * מוריד את הקובץ למחשב. אם אי אפשר לטעון את ספריית ה-xlsx (למשל בלי
@@ -189,29 +178,13 @@ window.Excel = (function () {
     async download(agent) {
       try {
         const blob = await workbook(agent);
-        saveAs(blob, filename());
-        return { blob, format: "xlsx" };
+        App.saveAs(blob, filename());
+        return { format: "xlsx" };
       } catch (err) {
         const blob = xmlWorkbook(agent);
-        saveAs(blob, filename().replace(/\.xlsx$/, ".xls"));
-        return { blob, format: "xls" };
+        App.saveAs(blob, filename().replace(/\.xlsx$/, ".xls"));
+        return { format: "xls" };
       }
-    },
-
-    /**
-     * מעדכן את העותק בענן בלי להוריד קובץ - זה ה"מאחורי הקלעים":
-     * אחרי כל שינוי הקובץ ב-Supabase Storage מתעדכן, ומי שפותח אותו
-     * מקבל תמיד את המצב האחרון.
-     */
-    async syncToCloud(agent) {
-      if (Store.state.backend !== "supabase") return false;
-      let blob;
-      try {
-        blob = await workbook(agent);
-      } catch (err) {
-        blob = xmlWorkbook(agent);
-      }
-      return Store.uploadWorkbook(blob);
     },
 
     /** קורא קובץ אקסל או CSV ומחזיר שורות לייבוא. תומך בגיליון "נתוני גלם". */

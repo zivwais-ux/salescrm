@@ -1,12 +1,11 @@
 /* ============================================================================
-   טבלת חודשים: עריכה ישירה של סכומים, תא אחר תא.
-   כל שינוי נשמר מיד - מקומית, ובענן אם מחובר.
+   טבלת חודשים — הטבלה של הדוח, אבל כל תא ניתן לעריכה.
+   שמירה ביציאה מהתא, ניווט בחצים כמו בגיליון, וביטול אחרון ב-Ctrl+Z.
    ========================================================================== */
 window.ViewGrid = (function () {
-  const ui = { search: "", onlyActive: true, page: 0, pageSize: 40 };
+  const ui = { search: "", onlyActive: true, page: 0, size: 30 };
 
-  /** שורה לכל צירוף לקוח+משלם+סוכן, כמו בדוח המקורי. */
-  function pairs(ctx) {
+  function rows(ctx) {
     const map = new Map();
     Store.sales()
       .filter((s) => s.y === ctx.year && (ctx.agent === "all" || s.agent === ctx.agent))
@@ -22,11 +21,11 @@ window.ViewGrid = (function () {
       });
 
     if (!ui.onlyActive) {
+      const agent = ctx.agent === "all" ? (Store.state.agents[0] || {}).no : ctx.agent;
       Store.parties().forEach((party) => {
-        const key = `${party.no}|${party.no}|${ctx.agent}`;
+        const key = `${party.no}|${party.no}|${agent}`;
         if (!map.has(key)) {
-          map.set(key, { c: party.no, p: party.no,
-                         agent: ctx.agent === "all" ? undefined : ctx.agent,
+          map.set(key, { c: party.no, p: party.no, agent,
                          months: Array(12).fill(0), total: 0 });
         }
       });
@@ -34,94 +33,102 @@ window.ViewGrid = (function () {
 
     const term = ui.search.trim().toLowerCase();
     return [...map.values()]
-      .filter((row) => {
-        if (!term) return true;
-        return Store.partyName(row.c).toLowerCase().includes(term) ||
-               Store.partyName(row.p).toLowerCase().includes(term) ||
-               row.c.includes(term) || row.p.includes(term);
-      })
+      .filter((row) => !term
+        || Store.partyName(row.c).toLowerCase().includes(term)
+        || Store.partyName(row.p).toLowerCase().includes(term)
+        || row.c.includes(term) || row.p.includes(term))
       .sort((a, b) => b.total - a.total);
   }
 
-  function agentName(no) {
-    const agent = Store.state.agents.find((a) => a.no === no);
-    return agent ? agent.name : `סוכן ${no}`;
-  }
-
   function render(root, ctx) {
-    const all = pairs(ctx);
-    const pageCount = Math.max(1, Math.ceil(all.length / ui.pageSize));
-    ui.page = Math.min(ui.page, pageCount - 1);
-    const rows = all.slice(ui.page * ui.pageSize, (ui.page + 1) * ui.pageSize);
+    const all = rows(ctx);
+    const pages = Math.max(1, Math.ceil(all.length / ui.size));
+    ui.page = Math.min(ui.page, pages - 1);
+    const page = all.slice(ui.page * ui.size, (ui.page + 1) * ui.size);
     const totals = Array(12).fill(0);
     all.forEach((row) => row.months.forEach((v, i) => { totals[i] += v; }));
 
-    root.innerHTML = `
-      <div class="card">
-        <div class="toolbar">
-          <input type="search" id="grid-search" placeholder="חיפוש לקוח או משלם"
+    root.innerHTML = UI.card("", {
+      flush: true,
+      body: `
+      <div class="toolbar">
+        <label class="search">
+          ${UI.icon("search", 15)}
+          <input class="input" type="search" id="grid-search" placeholder="חיפוש לקוח או משלם"
                  value="${Fmt.escape(ui.search)}">
-          <label class="field">
-            <input type="checkbox" id="grid-active" ${ui.onlyActive ? "checked" : ""}>
-            <span>רק שורות עם תנועה ב-${ctx.year}</span>
-          </label>
-          <button class="btn btn-primary" id="grid-add">+ שורת מכירה</button>
-          <span class="hint">${Fmt.number(all.length)} שורות · סה"כ ${
-            Fmt.money(Metrics.sum(totals))}</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="grid-active" ${ui.onlyActive ? "checked" : ""}>
+          <span>רק שורות עם תנועה ב-${ctx.year}</span>
+        </label>
+        <div class="spacer row-actions">
+          <span class="hint">${Fmt.number(all.length)} שורות · ${Fmt.money(Metrics.sum(totals))}</span>
+          <button class="btn btn-primary" id="grid-add">${UI.icon("plus", 15)} שורת מכירה</button>
         </div>
+      </div>
 
-        <div class="table-wrap">
-          <table class="grid-table">
-            <thead>
-              <tr>
-                <th>לקוח</th>
-                <th>משלם</th>
-                ${Fmt.SHORT.map((m) => `<th class="num">${m}</th>`).join("")}
-                <th class="num">סה"כ</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map((row) => `
-                <tr data-c="${Fmt.escape(row.c)}" data-p="${Fmt.escape(row.p)}"
-                    data-agent="${Fmt.escape(row.agent || "")}">
-                  <td class="name-cell">${Fmt.escape(Store.partyName(row.c))}
-                    <span class="sub">${Fmt.escape(row.c)}${
-                      row.agent ? ` · ${Fmt.escape(agentName(row.agent))}` : ""}</span></td>
-                  <td>${row.p === row.c ? '<span class="sub">אותו לקוח</span>'
-                    : `${Fmt.escape(Store.partyName(row.p))}<span class="sub">${
-                        Fmt.escape(row.p)}</span>`}</td>
-                  ${row.months.map((v, i) => `
-                    <td class="cell ${v ? "filled" : ""}">
-                      <input inputmode="decimal" data-month="${i + 1}"
-                             value="${v ? Math.round(v * 100) / 100 : ""}">
-                    </td>`).join("")}
-                  <td class="num"><strong>${Fmt.money(row.total)}</strong></td>
-                  <td class="num"><button class="btn btn-sm" data-open="${
-                    Fmt.escape(row.c)}">כרטיס</button></td>
-                </tr>`).join("") || '<tr><td colspan="16" class="empty">אין שורות</td></tr>'}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="2">סה"כ כל השורות</td>
-                ${totals.map((v) => `<td class="num">${Fmt.short(v)}</td>`).join("")}
-                <td class="num">${Fmt.money(Metrics.sum(totals))}</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+      <div class="table-wrap" style="max-height:calc(100vh - 250px)">
+        <table class="grid-table">
+          <thead>
+            <tr>
+              <th style="min-width:230px">לקוח</th>
+              <th style="min-width:140px">משלם</th>
+              ${Fmt.SHORT.map((m) => `<th class="num">${m}</th>`).join("")}
+              <th class="num">סה״כ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${page.map((row) => `
+              <tr data-c="${Fmt.escape(row.c)}" data-p="${Fmt.escape(row.p)}"
+                  data-agent="${Fmt.escape(row.agent || "")}">
+                <td>
+                  <div class="cell-party">
+                    ${UI.avatar(Store.partyName(row.c))}
+                    <div>
+                      <div class="cell-title ellipsis">${Fmt.escape(Store.partyName(row.c))}</div>
+                      <div class="cell-sub">${Fmt.escape(row.c)}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>${row.p === row.c
+                  ? '<span class="hint">אותו לקוח</span>'
+                  : `<div class="ellipsis" style="max-width:160px">${
+                       Fmt.escape(Store.partyName(row.p))}</div>
+                     <div class="cell-sub">${Fmt.escape(row.p)}</div>`}</td>
+                ${row.months.map((v, i) => `
+                  <td class="cell ${v ? "filled" : ""}">
+                    <input inputmode="decimal" data-month="${i + 1}"
+                           data-raw="${v || ""}" aria-label="${Fmt.month(i + 1)}"
+                           value="${v ? Fmt.number(v) : ""}">
+                  </td>`).join("")}
+                <td class="num" style="font-weight:600;white-space:nowrap">${
+                  Fmt.money(row.total)}</td>
+              </tr>`).join("") || `<tr><td colspan="15">${
+                UI.empty("אין שורות להצגה", "אפשר לבטל את סינון התנועות או לנקות את החיפוש.")
+              }</td></tr>`}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2">סה״כ כל השורות</td>
+              ${totals.map((v) => `<td class="num" style="white-space:nowrap">${
+                v ? Fmt.short(v) : "—"}</td>`).join("")}
+              <td class="num" style="white-space:nowrap">${
+                Fmt.money(Metrics.sum(totals))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
 
-        ${pageCount > 1 ? `
-          <div class="form-actions" style="margin-top:12px;justify-content:center">
-            <button class="btn btn-sm" id="page-prev" ${ui.page === 0 ? "disabled" : ""}>הקודם</button>
-            <span class="hint">עמוד ${ui.page + 1} מתוך ${pageCount}</span>
-            <button class="btn btn-sm" id="page-next" ${
-              ui.page >= pageCount - 1 ? "disabled" : ""}>הבא</button>
-          </div>` : ""}
-        <p class="hint" style="margin-top:10px">
-          עריכה ישירה בתא ושמירה ביציאה ממנו. סכום 0 או תא ריק מוחקים את התנועה.</p>
-      </div>`;
+      <div class="toolbar" style="border-bottom:0;border-top:1px solid var(--line)">
+        <span class="hint">עריכה ישירה בתא · תא ריק מוחק את התנועה · חצים לניווט</span>
+        ${pages > 1 ? `<div class="spacer row-actions">
+          <button class="btn btn-sm" id="page-prev" ${ui.page === 0 ? "disabled" : ""}>הקודם</button>
+          <span class="hint">עמוד ${ui.page + 1} מתוך ${pages}</span>
+          <button class="btn btn-sm" id="page-next" ${
+            ui.page >= pages - 1 ? "disabled" : ""}>הבא</button>
+        </div>` : ""}
+      </div>`,
+    });
 
     const search = root.querySelector("#grid-search");
     search.addEventListener("input", () => {
@@ -143,28 +150,59 @@ window.ViewGrid = (function () {
     if (prev) prev.addEventListener("click", () => { ui.page -= 1; render(root, ctx); });
     if (next) next.addEventListener("click", () => { ui.page += 1; render(root, ctx); });
 
-    root.querySelectorAll("[data-open]").forEach((btn) => btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      App.openCustomer(btn.dataset.open);
-    }));
+    wireCells(root, ctx);
+  }
 
-    root.querySelectorAll("td.cell input").forEach((input) => {
-      const original = input.value;
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") input.blur();
-        if (e.key === "Escape") { input.value = original; input.blur(); }
+  /**
+   * עריכה, ניווט במקלדת, ושמירה בלי לצייר מחדש את כל המסך.
+   * התא מציג מספר מעוצב כשאינו בעריכה, ומחליף לערך הגולמי בכניסה אליו —
+   * כך הטבלה נקראת כמו דוח, ונערכת כמו גיליון בלי לאבד אגורות.
+   */
+  function wireCells(root, ctx) {
+    const inputs = [...root.querySelectorAll("td.cell input")];
+    const columns = 12;
+
+    inputs.forEach((input, index) => {
+      const raw = () => Number(input.dataset.raw || 0);
+
+      input.addEventListener("focus", () => {
+        input.value = raw() || "";
+        input.select();
       });
-      input.addEventListener("blur", async () => {
-        if (input.value.trim() === original.trim()) return;
+
+      input.addEventListener("keydown", (e) => {
+        const moves = {
+          Enter: columns, ArrowDown: columns, ArrowUp: -columns,
+          ArrowRight: -1, ArrowLeft: 1,
+        };
+        if (e.key === "Escape") {
+          input.value = raw() || "";
+          input.blur();
+          return;
+        }
+        // חצים אופקיים זזים בין תאים רק כשהסמן בקצה הטקסט.
+        if ((e.key === "ArrowRight" && input.selectionStart !== 0)
+          || (e.key === "ArrowLeft" && input.selectionStart !== input.value.length)) return;
+        const step = moves[e.key];
+        if (step === undefined) return;
+        const target = inputs[index + step];
+        if (!target) return;
+        e.preventDefault();
+        target.focus();
+      });
+
+      input.addEventListener("blur", () => {
+        const value = input.value.trim() ? Fmt.parseNumber(input.value) : 0;
+        if (value === raw()) {
+          input.value = raw() ? Fmt.number(raw()) : "";
+          return;
+        }
         const tr = input.closest("tr");
         const month = Number(input.dataset.month);
-        try {
-          await Store.setSale(tr.dataset.c, tr.dataset.p, ctx.year, month, input.value,
-                              tr.dataset.agent || (ctx.agent === "all" ? undefined : ctx.agent));
-          App.toast(`${Fmt.month(month)} · ${Store.partyName(tr.dataset.c)} עודכן`);
-        } catch (err) {
-          App.toast(`השמירה נכשלה: ${err.message}`);
-        }
+        Store.setSale(tr.dataset.c, tr.dataset.p, ctx.year, month, value,
+                      tr.dataset.agent || (ctx.agent === "all" ? undefined : ctx.agent));
+        App.toast(`${Fmt.month(month)} · ${Store.partyName(tr.dataset.c)} — ${
+          value ? Fmt.money(value) : "נמחק"}`, "up", { undo: true });
       });
     });
   }
@@ -172,44 +210,48 @@ window.ViewGrid = (function () {
   function addRow(ctx) {
     const options = Store.parties()
       .sort((a, b) => a.name.localeCompare(b.name, "he"))
-      .map((p) => `<option value="${Fmt.escape(p.no)}">${Fmt.escape(p.name)} (${
-        Fmt.escape(p.no)})</option>`).join("");
+      .map((p) => `<option value="${Fmt.escape(p.no)}">${Fmt.escape(p.name)} · ${
+        Fmt.escape(p.no)}</option>`).join("");
 
-    App.openDrawer(`
-      <div class="drawer-head">
-        <h2>הוספת מכירה</h2>
-        <button class="btn btn-sm" data-close-drawer>סגירה</button>
-      </div>
-      <div class="card">
-        <div class="form-grid">
-          <label class="stacked"><span>לקוח</span>
-            <select id="add-c">${options}</select></label>
-          <label class="stacked"><span>לקוח משלם</span>
-            <select id="add-p"><option value="">זהה ללקוח</option>${options}</select></label>
-          <label class="stacked"><span>שנה</span>
-            <select id="add-y">${Store.years().map((y) => (
-              `<option ${y === ctx.year ? "selected" : ""}>${y}</option>`)).join("")}</select></label>
-          <label class="stacked"><span>חודש</span>
-            <select id="add-m">${Fmt.MONTHS.map((name, i) => (
-              `<option value="${i + 1}">${name}</option>`)).join("")}</select></label>
-          <label class="stacked"><span>סכום (₪)</span>
-            <input id="add-a" inputmode="decimal"></label>
-        </div>
-        <div class="form-actions" style="margin-top:12px">
-          <button class="btn btn-primary" id="add-save">שמירה</button>
-        </div>
-      </div>`, (panel) => {
-      panel.querySelector("#add-save").addEventListener("click", async () => {
-        const c = panel.querySelector("#add-c").value;
-        const p = panel.querySelector("#add-p").value || c;
-        const y = Number(panel.querySelector("#add-y").value);
-        const m = Number(panel.querySelector("#add-m").value);
-        const a = panel.querySelector("#add-a").value;
-        if (!Fmt.parseNumber(a)) return App.toast("צריך סכום גדול מאפס");
-        await Store.setSale(c, p, y, m, a, ctx.agent === "all" ? undefined : ctx.agent);
-        App.toast("המכירה נשמרה");
-        App.closeDrawer();
-      });
+    App.openDrawer({
+      title: "הוספת מכירה",
+      body: UI.card("", {
+        body: `
+          <div class="form-grid">
+            <label class="stacked"><span>לקוח</span>
+              <select class="select" id="add-c">${options}</select></label>
+            <label class="stacked"><span>לקוח משלם</span>
+              <select class="select" id="add-p">
+                <option value="">זהה ללקוח</option>${options}</select></label>
+            <label class="stacked"><span>שנה</span>
+              <select class="select" id="add-y">${Store.years().map((y) => (
+                `<option ${y === ctx.year ? "selected" : ""}>${y}</option>`)).join("")}
+              </select></label>
+            <label class="stacked"><span>חודש</span>
+              <select class="select" id="add-m">${Fmt.MONTHS.map((name, i) => (
+                `<option value="${i + 1}" ${
+                  i + 1 === Store.lastMonth(ctx.year) ? "selected" : ""}>${name}</option>`
+              )).join("")}</select></label>
+            <label class="stacked"><span>סכום (₪)</span>
+              <input class="input" id="add-a" inputmode="decimal" placeholder="0"></label>
+          </div>
+          <div class="row-actions" style="margin-top:14px">
+            <button class="btn btn-primary" id="add-save">שמירה</button>
+          </div>`,
+      }),
+      onReady(panel) {
+        panel.querySelector("#add-save").addEventListener("click", () => {
+          const c = panel.querySelector("#add-c").value;
+          const p = panel.querySelector("#add-p").value || c;
+          const amount = panel.querySelector("#add-a").value;
+          if (!Fmt.parseNumber(amount)) return App.toast("צריך סכום גדול מאפס", "down");
+          Store.setSale(c, p, Number(panel.querySelector("#add-y").value),
+                        Number(panel.querySelector("#add-m").value), amount,
+                        ctx.agent === "all" ? undefined : ctx.agent);
+          App.toast("המכירה נשמרה", "up");
+          App.closeDrawer();
+        });
+      },
     });
   }
 
