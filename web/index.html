@@ -4,20 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
-  <title>ניהול מכירות · גדות מסופים</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b4ee0'/><path d='M9 21h14M12 21V12M16 21V9M20 21v-6' stroke='white' stroke-width='2.2' stroke-linecap='round'/></svg>">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#090c10" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="BENY">
+  <title>BENY · ניהול מכירות</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23335ed4'/><text x='16' y='22' font-size='17' font-family='Helvetica,Arial,sans-serif' font-weight='700' fill='white' text-anchor='middle'>B</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
   <script>
-    // נקבע לפני הציור הראשון כדי שלא תהיה הבזקה של המצב הלא נכון.
-    try {
-      var saved = localStorage.getItem("gadot_theme");
-      var dark = saved ? saved === "dark"
-                       : matchMedia("(prefers-color-scheme: dark)").matches;
+    // נקבע לפני הציור הראשון, אחרת יש הבזק של המצב הלא נכון.
+    (function () {
+      var pref = "auto";
+      try { pref = localStorage.getItem("beny_theme") || "auto"; } catch (e) { /* חסום */ }
+      var dark = pref === "dark" || (pref === "auto"
+        && window.matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
-    } catch (e) { document.documentElement.dataset.theme = "light"; }
+    })();
   </script>
 </head>
 <body>
@@ -26,19 +32,14 @@
   <aside class="sidebar" id="sidebar"></aside>
 
   <div class="main">
-    <header class="topbar">
-      <button class="btn btn-icon btn-ghost only-mobile" id="menu-btn" aria-label="תפריט"></button>
-      <div>
-        <div class="page-title" id="page-title">לוח בקרה</div>
-        <div class="page-sub" id="page-sub"></div>
-      </div>
-      <div class="topbar-tools" id="topbar-tools"></div>
-    </header>
-
+    <header class="topbar" id="topbar"></header>
     <main class="view" id="view"></main>
   </div>
+
+  <nav class="tabbar" id="tabbar"></nav>
 </div>
 
+<div id="chat-root"></div>
 <div id="drawer-root"></div>
 <div id="palette-root"></div>
 <div class="toast-stack" id="toast-stack"></div>
@@ -50,6 +51,7 @@
 <script src="js/store.js"></script>
 <script src="js/metrics.js"></script>
 <script src="js/charts.js"></script>
+<script src="js/assistant.js"></script>
 <script src="js/excel.js"></script>
 <script src="js/views/dashboard.js"></script>
 <script src="js/views/customers.js"></script>

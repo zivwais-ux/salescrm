@@ -57,6 +57,15 @@ window.ViewCustomers = (function () {
           <input class="input" type="search" id="cust-search" placeholder="חיפוש לפי שם או מספר"
                  value="${Fmt.escape(ui.search)}">
         </label>
+        <div class="spacer row-actions">
+          <span class="hint no-mobile">${Fmt.number(list.length)} לקוחות · ${
+            Fmt.money(shown)}</span>
+          <button class="btn btn-primary" id="cust-add" aria-label="לקוח חדש">${
+            UI.icon("plus", 15)}<span class="no-mobile">לקוח חדש</span></button>
+        </div>
+      </div>
+
+      <div class="toolbar toolbar-chips">
         <div class="seg">
           ${Object.entries(SCOPES).map(([key, s]) => `
             <button data-scope="${key}" class="${ui.scope === key ? "is-active" : ""}">${
@@ -71,14 +80,11 @@ window.ViewCustomers = (function () {
             ).join("")}
           </select>
         </label>
-        <div class="spacer row-actions">
-          <span class="hint">${Fmt.number(list.length)} לקוחות · ${Fmt.money(shown)}</span>
-          <button class="btn btn-primary" id="cust-add">${UI.icon("plus", 15)} לקוח חדש</button>
-        </div>
+        <span class="hint only-mobile spacer">${Fmt.number(list.length)} לקוחות</span>
       </div>
 
-      <div class="table-wrap" style="max-height:calc(100vh - 190px)">
-        <table>
+      <div class="table-wrap cards-wrap" style="max-height:calc(100vh - 190px)">
+        <table class="cards-on-mobile">
           <thead>
             <tr>
               ${th("לקוח", "name")}
@@ -95,7 +101,7 @@ window.ViewCustomers = (function () {
             ${list.map((c) => {
               const status = STATUS[c.profile.status] || STATUS.active;
               return `<tr class="row-link" data-no="${Fmt.escape(c.no)}">
-                <td>
+                <td class="cell-main">
                   <div class="cell-party">
                     ${UI.avatar(c.name)}
                     <div>
@@ -108,13 +114,17 @@ window.ViewCustomers = (function () {
                     </div>
                   </div>
                 </td>
-                <td class="num" style="font-weight:600">${Fmt.money(c.ytd)}</td>
-                <td class="num" style="color:var(--muted)">${Fmt.money(c.priorYtd)}</td>
-                <td class="num">${UI.delta(c.changePct)}</td>
-                <td class="num">${Charts.sparkline(c.months)}</td>
-                <td class="num">${c.activeMonths}</td>
-                <td class="num">${c.lastActive ? Fmt.monthShort(c.lastActive) : "—"}</td>
-                <td><span class="badge ${status.tone}">${status.label}</span></td>
+                <td class="num" data-label="${view.year} עד כה"
+                    style="font-weight:600">${Fmt.money(c.ytd)}</td>
+                <td class="num" data-label="${view.priorYear} מקביל"
+                    style="color:var(--muted)">${Fmt.money(c.priorYtd)}</td>
+                <td class="num" data-label="שינוי">${UI.delta(c.changePct)}</td>
+                <td class="num hide-mobile">${Charts.sparkline(c.months)}</td>
+                <td class="num hide-mobile">${c.activeMonths}</td>
+                <td class="num" data-label="מכירה אחרונה">${
+                  c.lastActive ? Fmt.monthShort(c.lastActive) : "—"}</td>
+                <td data-label="סטטוס"><span class="badge ${status.tone}">${
+                  status.label}</span></td>
               </tr>`;
             }).join("") || `<tr><td colspan="8">${
               UI.empty("לא נמצאו לקוחות", "אפשר לנקות את החיפוש או לשנות את הסינון.", "search")

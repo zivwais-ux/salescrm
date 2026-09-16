@@ -6,9 +6,17 @@ window.ViewDashboard = (function () {
   // איזה גרף מוצג כרגע כטבלה. נשמר בין ציורים כדי שהבחירה לא תתאפס.
   const asTable = new Set();
 
-  function kpi(label, value, foot, iconName) {
+  /**
+   * כרטיס מדד. לכל מדד יש משפט הסבר בשפה פשוטה — מי שלא בטוח מה המספר אומר
+   * מקבל תשובה במקום, בלי לעזוב את המסך.
+   */
+  function kpi(label, value, foot, iconName, help) {
     return `<section class="card kpi">
-      <div class="kpi-label">${iconName ? UI.icon(iconName, 14) : ""}${label}</div>
+      <div class="kpi-label">
+        ${iconName ? UI.icon(iconName, 14) : ""}${label}
+        ${help ? `<button class="kpi-help" data-help="${Fmt.escape(help)}"
+                          aria-label="מה זה אומר">?</button>` : ""}
+      </div>
       <div class="kpi-value">${value}</div>
       <div class="kpi-foot">${foot || ""}</div>
     </section>`;
@@ -56,7 +64,7 @@ window.ViewDashboard = (function () {
                     ...view.shrinking.slice(0, 6)].sort((a, b) => b.delta - a.delta);
 
     root.innerHTML = `
-      <section class="hero">
+      <section class="hero sec-hero">
         <div class="hero-main">
           <div class="hero-label">מכירות ${view.year} · ${period}</div>
           <div class="hero-value">${Fmt.money(view.totalYtd)}</div>
@@ -72,33 +80,38 @@ window.ViewDashboard = (function () {
         <div class="hero-chart" id="chart-cumulative"></div>
       </section>
 
-      <div class="grid cols-4">
+      <div class="grid cols-4 sec-kpi">
         ${kpi("הפרש מול אשתקד", Fmt.signed(view.delta),
-              `על פני ${view.lastMonth} חודשים`, "trendUp")}
+              `על פני ${view.lastMonth} חודשים`, "trendUp",
+              `כמה שקלים מכרנו השנה יותר או פחות מאותם ${view.lastMonth} חודשים ב-${prior}.`)}
         ${kpi("תחזית לסוף השנה", Fmt.money(view.runRate),
-              `סגירת ${prior}: ${Fmt.shortMoney(view.priorFullYear)}`, "target")}
-        ${kpi("ריכוז 10 הגדולים", `${view.top10Share.toFixed(0)}%`,
-              `${Fmt.shortMoney(Metrics.sum(view.top10.map((c) => c.ytd)))} מהמחזור`, "users")}
+              `סגירת ${prior}: ${Fmt.shortMoney(view.priorFullYear)}`, "target",
+              `הממוצע החודשי עד כה כפול 12. זו הערכה גסה — אין בה עונתיות.`)}
+        ${kpi("תלות בלקוחות הגדולים", `${view.top10Share.toFixed(0)}%`,
+              `${Fmt.shortMoney(Metrics.sum(view.top10.map((c) => c.ytd)))} מהמחזור`, "users",
+              "איזה חלק מהמחזור מגיע מעשרת הלקוחות הגדולים. ככל שהאחוז גבוה יותר, "
+              + "כך אובדן לקוח אחד כואב יותר.")}
         ${view.targetTotal
           ? kpi("עמידה ביעד", `${(view.targetPct || 0).toFixed(0)}%`,
-                `פער ${Fmt.signed(view.totalYtd - view.targetTotal)}`, "target")
+                `פער ${Fmt.signed(view.totalYtd - view.targetTotal)}`, "target",
+                "המכירות עד כה מול סכום היעדים שהוגדרו בכרטיסי הלקוחות.")
           : kpi("לקוחות חדשים השנה", Fmt.number(view.newCustomers.length),
                 `${Fmt.shortMoney(Metrics.sum(view.newCustomers.map((c) => c.ytd)))} מחזור חדש`,
-                "spark")}
+                "spark", `לקוחות שקנו ב-${view.year} ולא קנו בכלל ב-${prior}.`)}
       </div>
 
-      <div class="grid cols-2">
+      <div class="grid cols-2 sec-charts">
         ${chartCard("chart-months", "מכירות לפי חודש", `${view.year} מול ${prior}`)}
         ${chartCard("chart-movers", "מי הזיז את המחזור",
                     `השינוי הגדול ביותר מול ${prior}, בשקלים`)}
       </div>
 
-      <div class="grid cols-2">
+      <div class="grid cols-2 sec-charts">
         ${chartCard("chart-top", "10 הלקוחות הגדולים", `${period} ${view.year}`)}
         ${chartCard("chart-agents", "פילוח לפי סוכן", `${period} ${view.year}`)}
       </div>
 
-      <div class="grid cols-2">
+      <div class="grid cols-2 sec-actions">
         ${UI.card("דורש טיפול", {
           sub: `ירידה של 35% ומעלה מול אשתקד, או לקוח שהפסיק לקנות`,
           actions: `<span class="badge ${view.atRisk.length ? "down" : "up"}">${
@@ -131,6 +144,7 @@ window.ViewDashboard = (function () {
       </div>
 
       ${UI.card("משימות פתוחות", {
+        id: "sec-tasks",
         sub: openTasks.length ? "לפי תאריך המעקב" : "",
         actions: `<button class="btn btn-sm" data-goto="activity">כל הפעילות</button>`,
         flush: true,
@@ -234,6 +248,10 @@ window.ViewDashboard = (function () {
     UI.on(root, "[data-goto]", "click", (e) => {
       e.stopPropagation();
       App.go(e.currentTarget.dataset.goto);
+    });
+    UI.on(root, "[data-help]", "click", (e) => {
+      e.stopPropagation();
+      App.toast(e.currentTarget.dataset.help);
     });
   }
 

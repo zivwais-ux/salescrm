@@ -6,15 +6,16 @@ window.App = (function () {
   const cfg = window.APP_CONFIG;
   const ctx = { year: null, agent: "all", view: "dashboard" };
 
+  // חמישה מסכים, ארבעה מהם בסרגל התחתון בנייד. ה"תפריט" מחזיק את השאר.
   const NAV = [
-    { id: "dashboard", label: "לוח בקרה", icon: "dashboard", view: () => ViewDashboard,
-      title: "לוח בקרה" },
+    { id: "dashboard", label: "בית", icon: "dashboard", view: () => ViewDashboard,
+      title: "בית", tab: true },
     { id: "customers", label: "לקוחות", icon: "customers", view: () => ViewCustomers,
-      title: "לקוחות" },
+      title: "לקוחות", tab: true },
+    { id: "activity", label: "משימות", icon: "activity", view: () => ViewActivity,
+      title: "משימות", tab: true },
     { id: "grid", label: "טבלת חודשים", icon: "grid", view: () => ViewGrid,
       title: "טבלת חודשים" },
-    { id: "activity", label: "משימות ופעילות", icon: "activity", view: () => ViewActivity,
-      title: "משימות ופעילות" },
     { id: "settings", label: "נתונים וקבצים", icon: "settings", view: () => ViewSettings,
       title: "נתונים וקבצים" },
   ];
@@ -41,18 +42,18 @@ window.App = (function () {
     };
   }
 
+  // נקודת ההתראה בסרגל התחתון מסמנת רק דברים שדורשים פעולה. מספר הלקוחות
+  // הפעילים אינו התראה, ונקודה אדומה לידו רק מלמדת להתעלם ממנה.
+  const ALERTS = new Set(["dashboard", "activity"]);
+
   function renderSidebar() {
     const n = counts();
     $("#sidebar").innerHTML = `
       <div class="brand">
-        <div class="brand-mark">${UI.icon("trendUp", 19)}</div>
-        <div>
-          <div class="brand-name">ניהול מכירות</div>
-          <div class="brand-sub">${Fmt.escape(cfg.branch)}</div>
-        </div>
+        <span class="wordmark">${Fmt.escape(cfg.name)}</span>
+        <span class="brand-sub">${Fmt.escape(cfg.branch)}</span>
       </div>
 
-      <div class="nav-label">ניווט</div>
       ${NAV.map((item) => `
         <button class="nav-item ${ctx.view === item.id ? "is-active" : ""}"
                 data-nav="${item.id}">
@@ -62,7 +63,7 @@ window.App = (function () {
         </button>`).join("")}
 
       <div class="nav-label">תצוגה</div>
-      <div style="display:grid;gap:8px;padding:0 10px">
+      <div class="nav-fields">
         <label class="stacked"><span>שנה</span>
           <select class="select" id="year-select"></select></label>
         <label class="stacked"><span>סוכן</span>
@@ -70,11 +71,12 @@ window.App = (function () {
       </div>
 
       <div class="sidebar-foot">
-        <button class="nav-item" id="theme-btn">
-          ${UI.icon(document.documentElement.dataset.theme === "dark" ? "sun" : "moon")}
-          <span>${document.documentElement.dataset.theme === "dark"
-            ? "מצב בהיר" : "מצב כהה"}</span>
-        </button>
+        <div class="nav-label" style="padding-top:0">תצוגה</div>
+        <div class="seg theme-seg" role="group" aria-label="בהיר או כהה">
+          ${[["auto", "אוטומטי"], ["light", "יום"], ["dark", "לילה"]].map(([key, label]) => `
+            <button data-theme-set="${key}" class="${themePref() === key ? "is-active" : ""}"
+                    aria-pressed="${themePref() === key}">${label}</button>`).join("")}
+        </div>
         <button class="nav-item" id="export-btn">
           ${UI.icon("download")}<span>ייצוא לאקסל</span>
         </button>
@@ -97,46 +99,100 @@ window.App = (function () {
       ctx.agent = e.target.value;
       render();
     });
-    $("#theme-btn").addEventListener("click", toggleTheme);
+    UI.on($("#sidebar"), "[data-theme-set]", "click",
+      (e) => setTheme(e.currentTarget.dataset.themeSet));
     $("#export-btn").addEventListener("click", exportExcel);
   }
 
   function renderHeader() {
     const item = NAV.find((n) => n.id === ctx.view);
     const view = Metrics.overview(ctx);
-    $("#page-title").textContent = item.title;
-    $("#page-sub").textContent = ctx.view === "settings" ? ""
+    const sub = ctx.view === "settings" ? ""
       : `${ctx.year} · ינואר–${Fmt.month(view.lastMonth)}${
           ctx.agent === "all" ? "" : ` · ${Store.agentName(ctx.agent)}`}`;
 
-    $("#topbar-tools").innerHTML = `
-      <button class="btn" id="open-palette">
-        ${UI.icon("search", 15)}<span>חיפוש לקוח</span>
-        <kbd>${navigator.platform.includes("Mac") ? "⌘" : "Ctrl"} K</kbd>
-      </button>
-      ${Store.canUndo() ? `<button class="btn btn-icon" id="undo-btn"
-        title="ביטול: ${Fmt.escape(Store.lastAction())}">${UI.icon("undo", 16)}</button>` : ""}`;
+    $("#topbar").innerHTML = `
+      <span class="wordmark only-mobile">${Fmt.escape(cfg.name)}</span>
+      <div class="page-head">
+        <div class="page-title">${Fmt.escape(item.title)}</div>
+        ${sub ? `<div class="page-sub">${Fmt.escape(sub)}</div>` : ""}
+      </div>
+      <div class="topbar-tools">
+        <button class="btn btn-icon only-mobile" id="open-palette-m" aria-label="חיפוש">
+          ${UI.icon("search", 17)}</button>
+        <button class="btn no-mobile" id="open-palette">
+          ${UI.icon("search", 15)}<span>חיפוש לקוח</span>
+          <kbd>${navigator.platform.includes("Mac") ? "⌘" : "Ctrl"} K</kbd>
+        </button>
+        ${Store.canUndo() ? `<button class="btn btn-icon" id="undo-btn"
+          aria-label="ביטול הפעולה האחרונה"
+          title="ביטול: ${Fmt.escape(Store.lastAction())}">${UI.icon("undo", 17)}</button>` : ""}
+        <button class="btn btn-icon btn-primary" id="open-chat" aria-label="שאלה על הנתונים">
+          ${UI.icon("chat", 17)}</button>
+      </div>`;
 
-    $("#open-palette").addEventListener("click", openPalette);
+    ["#open-palette", "#open-palette-m"].forEach((sel) => {
+      const node = $(sel);
+      if (node) node.addEventListener("click", openPalette);
+    });
     const undo = $("#undo-btn");
     if (undo) undo.addEventListener("click", undoLast);
+    $("#open-chat").addEventListener("click", toggleChat);
+  }
+
+  /** סרגל תחתון בנייד: ארבעה יעדים בלבד, האחרון פותח את השאר. */
+  function renderTabbar() {
+    const n = counts();
+    const tabs = NAV.filter((item) => item.tab);
+    $("#tabbar").innerHTML = `
+      ${tabs.map((item) => `
+        <button class="tab-item ${ctx.view === item.id ? "is-active" : ""}"
+                data-nav="${item.id}">
+          <span class="tab-icon">${UI.icon(item.icon, 21)}${
+            ALERTS.has(item.id) && n[item.id] ? '<span class="tab-dot"></span>' : ""}</span>
+          <span>${item.label}</span>
+        </button>`).join("")}
+      <button class="tab-item ${NAV.some((i) => !i.tab && i.id === ctx.view) ? "is-active" : ""}"
+              id="tab-more">
+        <span class="tab-icon">${UI.icon("menu", 21)}</span>
+        <span>עוד</span>
+      </button>`;
+
+    UI.on($("#tabbar"), "[data-nav]", "click", (e) => go(e.currentTarget.dataset.nav));
+    $("#tab-more").addEventListener("click", openSidebar);
   }
 
   function render() {
     renderSidebar();
     renderHeader();
+    renderTabbar();
     const root = $("#view");
     root.innerHTML = "";
     NAV.find((n) => n.id === ctx.view).view().render(root, ctx);
     if (openCustomerNo) renderCustomerCard(openCustomerNo);
   }
 
-  /* ------------------------------------------------------------------ נושא */
-  function toggleTheme() {
-    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem(cfg.themeKey, next); } catch (err) { /* לא קריטי */ }
+  /* ------------------------------------------------------------------ נושא
+     ההעדפה נשמרת כ-auto / light / dark, ורק התוצאה נחתמת על ה-HTML. כך יש
+     נקודת אמת אחת לצבעים, ומצב "אוטומטי" ממשיך לעקוב אחרי הגדרת המכשיר. */
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+
+  function themePref() {
+    try { return localStorage.getItem(cfg.themeKey) || "auto"; } catch (err) { return "auto"; }
+  }
+
+  function applyTheme() {
+    const pref = themePref();
+    const dark = pref === "dark" || (pref === "auto" && media.matches);
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  }
+
+  function setTheme(pref) {
+    try { localStorage.setItem(cfg.themeKey, pref); } catch (err) { /* לא קריטי */ }
+    applyTheme();
     render();
+    toast(pref === "auto" ? "התצוגה עוקבת אחרי המכשיר"
+      : pref === "dark" ? "מצב לילה" : "מצב יום");
   }
 
   /* --------------------------------------------------------------- הודעות */
@@ -469,6 +525,104 @@ window.App = (function () {
     return panel;
   }
 
+  /* ---------------------------------------------------------------- העוזר
+     פאנל צד בשולחן העבודה, מסך מלא בנייד. השיחה נשמרת בזיכרון הדף בלבד. */
+  let chatOpen = false;
+  const chatLog = [];
+
+  function toggleChat() {
+    chatOpen = !chatOpen;
+    renderChat();
+    if (chatOpen) {
+      const input = $("#chat-input");
+      if (input && window.innerWidth > 1000) input.focus();
+    }
+  }
+
+  function askAssistant(question) {
+    const text = String(question || "").trim();
+    if (!text) return;
+    chatLog.push({ role: "you", text });
+    const answer = Assistant.ask(text, ctx);
+    chatLog.push({ role: "beny", answer });
+    renderChat();
+    const body = $("#chat-body");
+    if (body) body.scrollTop = body.scrollHeight;
+  }
+
+  function renderChat() {
+    const root = $("#chat-root");
+    if (!chatOpen) {
+      root.innerHTML = "";
+      document.body.classList.remove("chat-open");
+      return;
+    }
+    document.body.classList.add("chat-open");
+
+    const intro = `
+      <div class="chat-intro">
+        <div class="chat-hello">
+          <span class="wordmark small">${Fmt.escape(cfg.name)}</span>
+          <p>שאלו אותי על הנתונים. אני שולף את התשובה מהמערכת — לא ממציא מספרים,
+             ואם אין לי כיסוי לשאלה אני אומר את זה.</p>
+        </div>
+        <div class="ans-suggest">
+          ${Assistant.SUGGESTIONS.map((q) => (
+            `<button class="ans-chip" data-ask="${Fmt.escape(q)}">${Fmt.escape(q)}</button>`
+          )).join("")}
+        </div>
+      </div>`;
+
+    root.innerHTML = `
+      <div class="chat-scrim" data-close-chat></div>
+      <aside class="chat" role="complementary" aria-label="עוזר הנתונים">
+        <header class="chat-head">
+          <div>
+            <div class="chat-title">שאלה על הנתונים</div>
+            <div class="hint">${ctx.year} · ${ctx.agent === "all"
+              ? "כל הסוכנים" : Fmt.escape(Store.agentName(ctx.agent))}</div>
+          </div>
+          <button class="btn btn-icon btn-ghost" data-close-chat aria-label="סגירה">
+            ${UI.icon("close", 17)}</button>
+        </header>
+
+        <div class="chat-body" id="chat-body">
+          ${chatLog.length ? chatLog.map((entry) => (
+            entry.role === "you"
+              ? `<div class="bubble you">${Fmt.escape(entry.text)}</div>`
+              : `<div class="bubble beny">
+                   <div class="ans-title">${entry.answer.title}</div>
+                   ${entry.answer.body || ""}
+                 </div>`
+          )).join("") : intro}
+        </div>
+
+        <form class="chat-form" id="chat-form">
+          <input class="input" id="chat-input" autocomplete="off"
+                 placeholder="למשל: מי דורש טיפול?">
+          <button class="btn btn-primary btn-icon" type="submit" aria-label="שליחה">
+            ${UI.icon("send", 17)}</button>
+        </form>
+      </aside>`;
+
+    UI.on(root, "[data-close-chat]", "click", toggleChat);
+    UI.on(root, "[data-ask]", "click", (e) => askAssistant(e.currentTarget.dataset.ask));
+    UI.on(root, "[data-open]", "click", (e) => {
+      if (window.innerWidth <= 1000) toggleChat();
+      openCustomer(e.currentTarget.dataset.open);
+    });
+    UI.on(root, "[data-goto]", "click", (e) => {
+      if (window.innerWidth <= 1000) toggleChat();
+      go(e.currentTarget.dataset.goto);
+    });
+    $("#chat-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = $("#chat-input");
+      askAssistant(input.value);
+      input.value = "";
+    });
+  }
+
   /* ---------------------------------------------------------- חיפוש מהיר */
   function openPalette() {
     const view = Metrics.overview(ctx);
@@ -587,12 +741,6 @@ window.App = (function () {
   function init() {
     Store.init();
 
-    $("#menu-btn").innerHTML = UI.icon("menu", 18);
-    $("#menu-btn").addEventListener("click", () => {
-      if ($("#sidebar").classList.contains("is-open")) closeSidebar();
-      else openSidebar();
-    });
-
     document.addEventListener("keydown", (e) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -606,10 +754,19 @@ window.App = (function () {
       if (e.key === "Escape") {
         if ($("#palette-root").innerHTML) return ($("#palette-root").innerHTML = "");
         if ($("#drawer-root").innerHTML) return closeDrawer();
+        if (chatOpen) return toggleChat();
       }
       if (e.key === "/" && !typing) {
         e.preventDefault();
         openPalette();
+      }
+    });
+
+    // מצב "אוטומטי" ממשיך לעקוב אחרי המכשיר גם בלי רענון.
+    media.addEventListener("change", () => {
+      if (themePref() === "auto") {
+        applyTheme();
+        render();
       }
     });
 
@@ -619,7 +776,7 @@ window.App = (function () {
   }
 
   return { init, render, go, toast, confirm, openDrawer, closeDrawer, openCustomer,
-           exportExcel, saveAs, ctx };
+           exportExcel, saveAs, toggleChat, ask: askAssistant, ctx };
 })();
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -67,44 +67,47 @@
   color-scheme: light;
 }
 
+/* ----------------------------------------------------------------- לילה ---
+   רקע כמעט-שחור ולא שחור מוחלט: על שחור טהור טקסט לבן "בוהק" ומטשטש, והמשטחים
+   מאבדים עומק. #12151b שומר על הפרדה בין שכבות ועל 16.6:1 לטקסט הראשי. */
 :root[data-theme="dark"] {
-  --bg:            oklch(0.178 0.014 266);
-  --surface:       oklch(0.221 0.016 266);
-  --surface-2:     oklch(0.259 0.017 266);
-  --surface-3:     oklch(0.301 0.018 266);
-  --line:          oklch(0.318 0.018 266);
-  --line-strong:   oklch(0.392 0.020 266);
+  --bg:            #090c10;
+  --surface:       #12151b;
+  --surface-2:     #1c1f26;
+  --surface-3:     #252931;
+  --line:          #272b33;
+  --line-strong:   #363b45;
 
-  --text:          oklch(0.962 0.004 266);
-  --text-2:        oklch(0.812 0.011 266);
-  --muted:         oklch(0.664 0.016 266);
+  --text:          #f3f4f6;
+  --text-2:        #c7cbd3;
+  --muted:         #90959e;
 
-  --accent:        oklch(0.682 0.163 265);
-  --accent-hover:  oklch(0.742 0.150 265);
-  --accent-soft:   oklch(0.312 0.070 265);
-  --accent-line:   oklch(0.398 0.106 265);
-  --accent-text:   oklch(0.795 0.122 265);
+  --accent:        #5b8def;
+  --accent-hover:  #7aa4f5;
+  --accent-soft:   #1a2540;
+  --accent-line:   #2c3d62;
+  --accent-text:   #a8c2fa;
 
-  --up:            oklch(0.740 0.150 163);
-  --up-soft:       oklch(0.305 0.062 163);
-  --up-line:       oklch(0.385 0.086 163);
+  --up:            #2ec98f;
+  --up-soft:       #10281f;
+  --up-line:       #1b4435;
 
-  --down:          oklch(0.700 0.168 26);
-  --down-soft:     oklch(0.318 0.081 26);
-  --down-line:     oklch(0.402 0.111 26);
+  --down:          #f4756c;
+  --down-soft:     #2c1512;
+  --down-line:     #4d221d;
 
-  --warn:          oklch(0.792 0.139 75);
-  --warn-soft:     oklch(0.326 0.064 75);
-  --warn-line:     oklch(0.418 0.089 75);
+  --warn:          #e9ad4b;
+  --warn-soft:     #2a1f0d;
+  --warn-line:     #4a381a;
 
-  --chart-grid:    oklch(0.318 0.018 266);
-  --chart-prior:   oklch(0.412 0.020 266);
+  --chart-grid:    #242830;
+  --chart-prior:   #414751;
 
-  --tint-l: 0.365;
+  --tint-l: 0.335;
 
-  --shadow-sm: 0 1px 2px oklch(0 0 0 / .30);
-  --shadow:    0 1px 2px oklch(0 0 0 / .28), 0 4px 12px oklch(0 0 0 / .26);
-  --shadow-lg: 0 10px 30px oklch(0 0 0 / .42), 0 2px 8px oklch(0 0 0 / .30);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / .45);
+  --shadow:    0 1px 2px rgb(0 0 0 / .4), 0 6px 16px rgb(0 0 0 / .38);
+  --shadow-lg: 0 12px 34px rgb(0 0 0 / .55), 0 2px 8px rgb(0 0 0 / .4);
 
   color-scheme: dark;
 }
@@ -178,27 +181,22 @@ svg { display: block; }
   overflow-y: auto;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 6px 8px 18px;
-}
+.brand { display: grid; gap: 1px; padding: 4px 10px 18px; }
 
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: var(--r);
-  background: var(--accent);
-  color: #fff;
-  box-shadow: var(--shadow-sm);
+/* הלוגו הוא השם עצמו: משקל כבד, ריווח אותיות פתוח, בלי סמל נלווה. */
+.wordmark {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--text);
+  line-height: 1;
 }
+.wordmark.small { font-size: 14px; letter-spacing: .12em; }
+.brand-sub { font-size: 11.5px; color: var(--muted); }
 
-.brand-name { font-size: 14.5px; font-weight: 650; letter-spacing: -.02em; }
-.brand-sub { font-size: 11.5px; color: var(--muted); margin-top: -1px; }
+.nav-fields { display: grid; gap: 8px; padding: 0 10px; }
+.theme-seg { width: 100%; margin-bottom: 4px; }
+.theme-seg button { flex: 1; }
 
 .nav-label {
   font-size: 10.5px;
@@ -263,10 +261,12 @@ svg { display: block; }
   border-bottom: 1px solid var(--line);
 }
 
+.page-head { min-width: 0; }
 .page-title { font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
 .page-sub { font-size: 12px; color: var(--muted); }
 
 .topbar-tools { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
+.no-mobile { display: inline-flex; }
 
 .view { padding: 22px 24px 48px; display: grid; gap: 16px; align-content: start; }
 
@@ -481,6 +481,22 @@ label.stacked textarea:focus {
 }
 .hero-value, .kpi-value { direction: rtl; unicode-bidi: plaintext; }
 .kpi-foot { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.kpi-help {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-inline-start: auto;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .13s, color .13s;
+}
+.kpi-help:hover { background: var(--accent-soft); color: var(--accent-text);
+                  border-color: var(--accent-line); }
 .kpi-spark { margin-top: 8px; }
 
 /* --------------------------------------------------------- badges & deltas -- */
@@ -648,7 +664,14 @@ tfoot td {
 .list-row > .grow { flex: 1; min-width: 0; }
 .list-title { font-weight: 550; font-size: 13px; }
 .list-sub { font-size: 11.5px; color: var(--muted); }
-.list-value { text-align: start; direction: ltr; font-variant-numeric: tabular-nums; font-weight: 600; }
+.list-value {
+  text-align: start;
+  direction: ltr;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  flex: none;                 /* הסכום לעולם לא נדחק החוצה בגלל שם ארוך */
+  white-space: nowrap;
+}
 .list-scroll { max-height: 470px; overflow-y: auto; }
 .list-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px;
              border-bottom: 1px solid var(--line); }
@@ -765,8 +788,10 @@ tfoot td {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 9px 15px;
-  border-radius: 99px;
+  padding: 10px 16px;
+  max-width: min(420px, calc(100vw - 32px));
+  border-radius: var(--r-lg);
+  line-height: 1.5;
   background: var(--text);
   color: var(--bg);
   font-size: 13px;
@@ -826,6 +851,141 @@ kbd {
   background: var(--surface-2);
   color: var(--text-2);
 }
+
+/* ----------------------------------------------------------------- tabbar -- */
+.tabbar { display: none; }
+
+/* ------------------------------------------------------------------- chat -- */
+.chat-scrim { display: none; }
+
+.chat {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 380px;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-inline-end: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  animation: chat-in .24s var(--ease);
+}
+@keyframes chat-in { from { transform: translateX(-16px); opacity: 0; } }
+
+/* בשולחן העבודה הפאנל דוחף את התוכן במקום לכסות אותו */
+@media (min-width: 1001px) {
+  body.chat-open .main { padding-inline-end: 380px; }
+  body.chat-open .topbar { padding-inline-end: calc(24px + 380px); }
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.chat-head > div { flex: 1; min-width: 0; }
+.chat-title { font-size: 14px; font-weight: 600; }
+
+.chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-intro { display: grid; gap: 14px; }
+.chat-hello { display: grid; gap: 8px; }
+.chat-hello p { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+.bubble {
+  border-radius: var(--r-lg);
+  font-size: 13px;
+  max-width: 100%;
+  min-width: 0;
+}
+.bubble.you {
+  align-self: flex-start;
+  background: var(--accent);
+  color: #fff;
+  padding: 9px 13px;
+  border-end-start-radius: var(--r-sm);
+  max-width: 85%;
+}
+.bubble.beny {
+  align-self: stretch;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  padding: 13px 14px;
+}
+
+.ans-title { font-weight: 650; font-size: 13.5px; margin-bottom: 9px; }
+.ans-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.ans-line:last-of-type { border-bottom: 0; }
+.ans-line b { color: var(--text); direction: ltr; flex: none; white-space: nowrap; }
+.ans-line > span { min-width: 0; }
+.ans-note { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 6px 0; }
+
+/* פריטי גריד מקבלים min-width:auto, ולכן שורה רחבה מרחיבה את כל הרשימה
+   מעבר לבועה והסכום נחתך בקצה. */
+.ans-list { display: grid; gap: 1px; margin: 4px 0; }
+.ans-list > * { min-width: 0; }
+.ans-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-align: start;
+}
+.ans-row:hover { background: var(--surface-3); }
+.ans-row .grow { flex: 1; min-width: 0; }
+.ans-row .num { font-weight: 600; direction: ltr; flex: none; white-space: nowrap; }
+
+.ans-suggest { display: flex; flex-wrap: wrap; gap: 6px; }
+.ans-chip {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  border-radius: 99px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background .13s, border-color .13s, color .13s;
+}
+.ans-chip:hover { background: var(--accent-soft); border-color: var(--accent-line);
+                  color: var(--accent-text); }
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.chat-form .input { height: 40px; }
+.chat-form .btn { height: 40px; width: 40px; flex: none; }
 
 /* ------------------------------------------------------------------ notice -- */
 .notice {
@@ -968,47 +1128,203 @@ kbd {
   border-bottom: 1px solid var(--line);
 }
 .toolbar .spacer { margin-inline-start: auto; }
+.toolbar-chips { border-bottom: 1px solid var(--line); }
 
-/* ------------------------------------------------------------- responsive -- */
+/* ------------------------------------------------------------- responsive --
+   מתחת ל-1000px המערכת מתנהגת כאפליקציה: ניווט בסרגל תחתון, גיליונות מסך
+   מלא, ושטחי נגיעה של 44px ומעלה. */
 .only-mobile { display: none; }
 
 @media (max-width: 1000px) {
-  :root { --sidebar: 0px; }
+  :root {
+    --sidebar: 0px;
+    --header-h: 54px;
+  }
+
   .app { grid-template-columns: minmax(0, 1fr); }
-  /* הסרגל נצמד לקצה הפותח (ימין בעברית) ומוסתר החוצה לאותו כיוון.
-     translateX הוא פיזי ולא לוגי, ולכן הכיוון נקבע לפי dir. */
+  .main { grid-column: 1; }
+  .no-mobile { display: none; }
+  .only-mobile { display: inline-flex; }
+
+  .topbar {
+    padding: 8px 14px;
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
+    gap: 10px;
+  }
+  .topbar .wordmark { font-size: 16px; }
+  /* בנייד הכותרת של המסך כבר מופיעה בסרגל התחתון */
+  .page-head { display: none; }
+
+  .view {
+    padding: 14px 14px 96px;         /* מקום לסרגל התחתון */
+    gap: 12px;
+  }
+
+  /* --- סרגל תחתון --- */
+  .tabbar {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 50;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    background: color-mix(in oklch, var(--surface) 92%, transparent);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .tab-item {
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    min-height: 54px;
+    padding: 7px 4px 8px;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab-item.is-active { color: var(--accent-text); font-weight: 600; }
+  .tab-icon { position: relative; display: grid; place-items: center; }
+  .tab-dot {
+    position: absolute;
+    top: -1px;
+    inset-inline-start: -3px;
+    width: 6px; height: 6px;
+    border-radius: 99px;
+    background: var(--down);
+    border: 1.5px solid var(--surface);
+  }
+
+  /* --- סרגל צד כגיליון --- */
   .sidebar {
     position: fixed;
     inset-block: 0;
     inset-inline-start: 0;
     inset-inline-end: auto;
-    width: 264px;
+    width: min(300px, 86vw);
     z-index: 70;
     transform: translateX(-100%);
     transition: transform .26s var(--ease);
     box-shadow: var(--shadow-lg);
     border-inline-start: 0;
     border-inline-end: 1px solid var(--line);
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
   }
   :root:dir(rtl) .sidebar { transform: translateX(100%); }
   .sidebar.is-open, :root:dir(rtl) .sidebar.is-open { transform: none; }
-  .main { grid-column: 1; }
-  .only-mobile { display: inline-flex; }
+  .scrim { position: fixed; inset: 0; z-index: 65; background: rgb(0 0 0 / .42); }
+
+  /* --- שטחי נגיעה --- */
+  /* החיפוש והפעולה נשארים במקומם; רק שורת המסננים נגללת אופקית */
+  .toolbar { flex-wrap: nowrap; }
+  .toolbar .search { flex: 1; min-width: 0; }
+  .toolbar-chips {
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-top: 0;
+    padding-bottom: 10px;
+  }
+  .toolbar-chips::-webkit-scrollbar { display: none; }
+  .toolbar-chips > * { flex: none; }
+  .seg { flex-wrap: nowrap; }
+  .field > span { display: none; }
+
+  .btn { height: 40px; padding: 0 14px; }
+  .btn-icon { width: 40px; }
+  .btn-sm { height: 34px; }
+  .btn-icon.btn-sm { width: 34px; }
+  .input, .select { height: 42px; font-size: 16px; }   /* 16px מונע זום ב-iOS */
+  .nav-item { padding: 11px 12px; font-size: 15px; }
+  .seg button { height: 34px; }
+  .list-row, .list-item { padding: 13px 14px; }
+  .tabs button { padding: 12px 13px; }
+
+  /* --- כרטיסים ופריסה --- */
   .hero { grid-template-columns: minmax(0, 1fr); }
   .hero-chart { border-inline-start: 0; border-top: 1px solid var(--line); }
-  .view { padding: 16px 14px 44px; }
-  .topbar { padding: 10px 14px; }
-  .scrim {
-    position: fixed; inset: 0; z-index: 65;
-    background: oklch(0.235 0.019 266 / .35);
+  .cols-2, .cols-3 { grid-template-columns: minmax(0, 1fr); }
+  /* ארבעה מדדים נקראים טוב יותר כשניים בשורה מאשר ארבעה מסכים של גלילה */
+  .cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi { padding: 12px 13px; }
+  .kpi-value { font-size: 19px; }
+  .kpi-label { font-size: 11px; }
+  .kpi-foot { font-size: 10.5px; }
+
+  /* בטלפון קודם המספר ומי דורש טיפול; הגרפים והמשימות אחריהם */
+  .view > .sec-hero { order: 1; }
+  .view > .sec-kpi { order: 2; }
+  .view > .sec-actions { order: 3; }
+  .view > .sec-charts { order: 4; }
+  .view > #sec-tasks { order: 5; }
+  .card-head { padding: 13px 14px; }
+  .card-body { padding: 14px; }
+  .toolbar { padding: 12px 14px; }
+
+  /* --- מגירה כגיליון מסך מלא --- */
+  .drawer-panel {
+    width: 100%;
+    animation: sheet-in .28s var(--ease);
+    padding-top: env(safe-area-inset-top, 0px);
   }
+  @keyframes sheet-in { from { transform: translateY(18px); opacity: 0; } }
+  .drawer-head { padding: 12px 14px; }
+  .tabs { top: 57px; }
+
+  /* --- העוזר כגיליון מסך מלא --- */
+  .chat {
+    inset: 0;
+    width: 100%;
+    border: 0;
+    padding-top: env(safe-area-inset-top, 0px);
+    animation: sheet-in .28s var(--ease);
+  }
+  .chat-scrim { display: block; position: fixed; inset: 0; z-index: 54;
+                background: rgb(0 0 0 / .3); }
+
+  /* --- חיפוש מהיר --- */
+  .palette-box { margin-top: 0; width: 100%; height: 100%; border-radius: 0;
+                 display: flex; flex-direction: column; }
+  .palette-box .palette-input { padding-top: max(15px, env(safe-area-inset-top, 0px)); }
+  .palette-results { flex: 1; max-height: none; }
+  .palette-row { padding: 12px; }
+  .palette-hint { display: none; }
+
+  /* --- טבלאות שהופכות לרשימה --- */
+  .cards-on-mobile thead { display: none; }
+  .cards-on-mobile, .cards-on-mobile tbody, .cards-on-mobile tr { display: block; width: 100%; }
+  .cards-on-mobile tr {
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    margin-bottom: 10px;
+    padding: 12px 13px;
+    background: var(--surface);
+  }
+  .cards-on-mobile td { display: flex; justify-content: space-between; align-items: center;
+                        gap: 12px; padding: 5px 0; border: 0; }
+  .cards-on-mobile td::before {
+    content: attr(data-label);
+    font-size: 11.5px;
+    color: var(--muted);
+    flex: none;
+  }
+  .cards-on-mobile td.cell-main { display: block; padding-bottom: 9px;
+                                  border-bottom: 1px solid var(--line); margin-bottom: 5px; }
+  .cards-on-mobile td.cell-main::before { content: none; }
+  .cards-on-mobile td.hide-mobile { display: none; }
+  .table-wrap.cards-wrap { max-height: none !important; overflow: visible; }
 }
 
 @media (max-width: 560px) {
-  .hero-value { font-size: 31px; }
-  .search { min-width: 0; flex: 1; }
-  .drawer-body { padding: 14px 14px 36px; }
-  .drawer-head, .tabs { padding-inline: 14px; }
+  .hero-value { font-size: 32px; }
+  .hero-main { padding: 16px 16px 18px; }
+  .drawer-body { padding: 14px 14px 40px; }
+  .div-row { grid-template-columns: minmax(0, 1fr) minmax(80px, 1fr) auto; font-size: 12px; }
+  .div-value { min-width: 74px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

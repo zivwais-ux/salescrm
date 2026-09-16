@@ -36,6 +36,9 @@ window.UI = (function () {
     mail: '<rect x="3.6" y="5.4" width="16.8" height="13.2" rx="2"/><path d="m4.4 7 7.6 5.4L19.6 7"/>',
     note: '<path d="M6 4.5h12v15H6z"/><path d="M9 9h6M9 12.5h6M9 16h3"/>',
     chart: '<path d="M4 19.5h16"/><path d="M7 19.5V12M11.5 19.5V7M16 19.5v-5.5"/>',
+    chat: '<path d="M20 12.5a7.2 7.2 0 0 1-7.7 7.2L7 21l1.1-3.1A7.2 7.2 0 1 1 20 12.5Z"/>'
+        + '<path d="M9 12h.01M12.5 12h.01M16 12h.01"/>',
+    send: '<path d="m5 12 14-7-5.2 14L11 13.5 5 12Z"/>',
   };
 
   function icon(name, size = 17) {
