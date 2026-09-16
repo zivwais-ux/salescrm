@@ -543,12 +543,11 @@ th.num { text-align: start; }
 .avatar {
   width: 30px;
   height: 30px;
-  font-size: 13px;
   flex: none;
   border-radius: 9px;
   display: grid;
   place-items: center;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   background: var(--surface-3);
   color: var(--text-2);
