@@ -2,6 +2,49 @@
    חישובי ניתוח. כל הפונקציות עובדות מול Store ומחזירות אובייקטים מוכנים לתצוגה.
    ========================================================================== */
 window.Metrics = (function () {
+  /**
+   * קטלוג הגופים: מי לקוח, מי רק משלם, ומה היחס ביניהם.
+   *
+   * שני דברים שהדוח לא אומר במפורש ומשנים את הפרשנות:
+   *   • "לקוחות שונים" אינו לקוח אלא סל מרוכז של מכירות קטנות. המחזור שלו
+   *     אמיתי ונספר, אבל אין למי להתקשר — ולכן הוא מוחרג מדירוגים ומרשימות
+   *     הטיפול, שם הוא היה תופס מקום של לקוח אמיתי.
+   *   • מספר לקוח שהוא קידומת מדויקת של מספר אחר הוא חשבון אב, והארוך ממנו
+   *     הוא אתר או חטיבה שלו (קרגל משמר השרון / משמר דוד). הדוח מציג אותם
+   *     כשני לקוחות נפרדים, וזה נכון — אבל הקשר ביניהם שווה הצגה.
+   */
+  let cached = null;
+
+  function catalog() {
+    const sales = Store.sales();
+    const key = `${sales.length}|${Store.parties().length}`;
+    if (cached && cached.key === key) return cached;
+
+    const shipTo = new Set(sales.map((s) => s.c));
+    const payers = new Set(sales.map((s) => s.p));
+    const numbers = Store.parties().map((p) => p.no).sort();
+
+    const parentOf = new Map();
+    const sitesOf = new Map();
+    numbers.forEach((a) => {
+      numbers.forEach((b) => {
+        if (a !== b && b.startsWith(a)) {
+          parentOf.set(b, a);
+          if (!sitesOf.has(a)) sitesOf.set(a, []);
+          sitesOf.get(a).push(b);
+        }
+      });
+    });
+
+    const buckets = new Set(Store.parties()
+      .filter((p) => /לקוחות שונים|שונים\s*$/.test(p.name))
+      .map((p) => p.no));
+
+    cached = { key, shipTo, payers, parentOf, sitesOf, buckets,
+               payerOnly: new Set([...payers].filter((no) => !shipTo.has(no))) };
+    return cached;
+  }
+
   /** מסנן תנועות לפי שנה/סוכן. agent === "all" מבטל את הסינון. */
   function rows({ year, agent }) {
     return Store.sales().filter((s) => (
@@ -63,9 +106,13 @@ window.Metrics = (function () {
       const priorYtd = upto(prevMonths, lastMonth);
       const activeMonths = curMonths.filter((v) => v > 0).length;
       const lastActive = curMonths.reduce((acc, v, i) => (v > 0 ? i + 1 : acc), 0);
+      const book = catalog();
       customers.push({
         no,
         name: Store.partyName(no),
+        isBucket: book.buckets.has(no),
+        parent: book.parentOf.get(no) || null,
+        sites: book.sitesOf.get(no) || [],
         profile: (Store.party(no) || {}).profile || {},
         months: curMonths,
         priorMonths: prevMonths,
@@ -89,22 +136,30 @@ window.Metrics = (function () {
     const totalYtd = sum(customers.map((c) => c.ytd));
     const totalPrior = sum(customers.map((c) => c.priorYtd));
     const active = customers.filter((c) => c.ytd > 0);
-    const top10 = active.slice(0, 10);
+
+    // הסל המרוכז נספר במחזור אבל לא בדירוגים וברשימות הפעולה.
+    const real = customers.filter((c) => !c.isBucket);
+    const top10 = real.filter((c) => c.ytd > 0).slice(0, 10);
 
     // לקוחות בסיכון: קנו בשנה שעברה, וירדו מהותית או נעלמו השנה.
     // הסף של 5,000 ₪ מסנן לקוחות מזדמנים שירידה אצלם אינה אומרת דבר.
     customers.forEach((c) => {
-      c.atRisk = c.priorYtd >= 5000
+      c.atRisk = !c.isBucket && c.priorYtd >= 5000
         && (c.ytd === 0 || (c.changePct !== null && c.changePct <= -35));
       // שקט על הקו: פעיל השנה, אך לא קנה בחודשיים האחרונים שנסגרו.
-      c.isQuiet = c.ytd > 0 && c.monthsSinceSale !== null && c.monthsSinceSale >= 2;
+      c.isQuiet = !c.isBucket && c.ytd > 0
+        && c.monthsSinceSale !== null && c.monthsSinceSale >= 2;
     });
 
     const atRisk = customers.filter((c) => c.atRisk).sort((a, b) => a.delta - b.delta);
 
-    const growing = customers
+    const growing = real
       .filter((c) => c.delta > 0 && c.priorYtd > 0)
       .sort((a, b) => b.delta - a.delta);
+
+    const shrinking = real
+      .filter((c) => c.delta < 0 && c.priorYtd > 0)
+      .sort((a, b) => a.delta - b.delta);
 
     const quiet = customers.filter((c) => c.isQuiet).sort((a, b) => b.ytd - a.ytd);
 
@@ -130,10 +185,36 @@ window.Metrics = (function () {
       atRisk,
       growing,
       quiet,
-      newCustomers: customers.filter((c) => c.isNew).sort((a, b) => b.ytd - a.ytd),
-      lostCustomers: customers.filter((c) => c.isLost).sort((a, b) => b.priorYtd - a.priorYtd),
+      shrinking,
+      newCustomers: real.filter((c) => c.isNew).sort((a, b) => b.ytd - a.ytd),
+      lostCustomers: real.filter((c) => c.isLost).sort((a, b) => b.priorYtd - a.priorYtd),
+      byAgent: agentSplit({ year, agent }),
       bestMonth: monthsCur.reduce((best, v, i) => (v > monthsCur[best] ? i : best), 0),
     };
+  }
+
+  /**
+   * פילוח לפי סוכן לשנה נתונה. הסוכנים הזניחים מקופלים ל"אחר" — ארבע
+   * קטגוריות על מסך אחד כבר קשות להבחנה, ושני סוכנים כאן הם שברירי אחוז.
+   */
+  function agentSplit({ year, agent }) {
+    const totals = new Map();
+    rows({ year, agent }).forEach((s) => {
+      totals.set(s.agent, (totals.get(s.agent) || 0) + s.a);
+    });
+    const all = [...totals.entries()]
+      .map(([no, value]) => ({ no, name: Store.agentName(no), value }))
+      .sort((a, b) => b.value - a.value);
+    const total = sum(all.map((a) => a.value));
+    const major = all.filter((a) => a.value / (total || 1) >= 0.02);
+    const minor = all.filter((a) => a.value / (total || 1) < 0.02);
+    const list = major.slice(0, 3);
+    const rest = [...major.slice(3), ...minor];
+    if (rest.length) {
+      list.push({ no: "other", name: rest.length === 1 ? rest[0].name : "סוכנים נוספים",
+                  value: sum(rest.map((a) => a.value)), count: rest.length });
+    }
+    return { list, total };
   }
 
   /** פירוט חודשי של לקוח בודד לאורך כל השנים. */
@@ -147,5 +228,6 @@ window.Metrics = (function () {
     });
   }
 
-  return { rows, byCustomer, monthly, overview, customerHistory, change, sum };
+  return { rows, byCustomer, monthly, overview, customerHistory, agentSplit,
+           catalog, change, sum };
 })();

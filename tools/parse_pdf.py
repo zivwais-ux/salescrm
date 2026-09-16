@@ -212,11 +212,38 @@ def parse_page(page, months, text_cols, head_y):
     return rows
 
 
+def control_totals(doc, months, head_y):
+    """The report's own printed summary line ("סה"כ כללי").
+
+    Used as an independent check on the parse: the app compares what it holds
+    against these figures, so a drift is visible rather than assumed away.
+    """
+    for page in doc:
+        lines = {}
+        for w in page.get_text("words"):
+            lines.setdefault(round(w[1], 1), []).append(w)
+        for y, tokens in lines.items():
+            texts = {w[4] for w in tokens}
+            if "סה" not in texts or "כללי" not in texts:
+                continue
+            found = {}
+            for w in tokens:
+                if not NUM_RE.match(w[4]):
+                    continue
+                for month, span in months.items():
+                    if in_col(w, span):
+                        found[month] = float(w[4].replace(",", ""))
+            return {"total": found.get(0),
+                    "months": {str(k): v for k, v in sorted(found.items()) if k}}
+    return None
+
+
 def parse(path, year):
     doc = pymupdf.open(path)
     months, text_cols = layout(doc[0])
     snap_to_data({**months, **text_cols}, doc, layout.head_y)
     rows = [r for page in doc for r in parse_page(page, months, text_cols, layout.head_y)]
+    parse.control = control_totals(doc, months, layout.head_y)
 
     carry = {"agent_no": "", "agent_name": "", "customer_no": "", "customer_name": ""}
     for row in rows:

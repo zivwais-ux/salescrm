@@ -2,10 +2,80 @@
    נתונים וקבצים — ייצוא וייבוא אקסל, גיבוי מלא, ואיפוס לנתוני הדוחות.
    ========================================================================== */
 window.ViewSettings = (function () {
+  /**
+   * הצלבה מול הדוח המקורי.
+   *
+   * הדוח מדפיס שורת "סה"כ כללי" משלו, והיא נשמרת בנפרד מהנתונים. הטבלה כאן
+   * משווה את מה שהמערכת מחזיקה עכשיו מול אותה שורה — כך שאחרי עריכה ידנית
+   * רואים בדיוק במה המערכת כבר שונה מהדוח, במקום להניח שהיא זהה לו.
+   */
+  function reconciliation(ctx) {
+    const years = Store.years().slice().reverse();
+    const blocks = years.map((year) => {
+      const control = Store.control(year);
+      if (!control) return "";
+      const live = Metrics.monthly({ year, agent: "all" });
+      const liveTotal = Metrics.sum(live);
+      // עיגול לאגורה לפני ההשוואה: סכום של אלפי מספרים עשרוניים משאיר שארית
+      // זעירה בייצוג הבינארי, והיא אינה הפרש אמיתי מול הדוח.
+      const drift = Math.round((liveTotal - control.total) * 100) / 100;
+      const months = Object.keys(control.months).map(Number).sort((a, b) => a - b);
+
+      return `<section class="card">
+        <header class="card-head">
+          <div>
+            <h3>${year}</h3>
+            <div class="sub">מול "סה״כ כללי" שבדוח המקורי</div>
+          </div>
+          <div class="spacer">
+            <span class="badge ${drift ? "warn" : "up"}">${
+              drift ? `הפרש ${Fmt.signed(drift)}` : "תואם לאגורה"}</span>
+          </div>
+        </header>
+        <div class="card-body flush">
+          <div class="table-wrap" style="max-height:290px">
+            <table>
+              <thead><tr>
+                <th>חודש</th><th class="num">בדוח</th>
+                <th class="num">במערכת</th><th class="num">הפרש</th>
+              </tr></thead>
+              <tbody>
+                ${months.map((m) => {
+                  const printed = control.months[String(m)];
+                  const actual = live[m - 1];
+                  const diff = Math.round((actual - printed) * 100) / 100;
+                  return `<tr>
+                    <td>${Fmt.month(m)}</td>
+                    <td class="num" style="color:var(--muted)">${Fmt.moneyExact(printed)}</td>
+                    <td class="num">${Fmt.moneyExact(actual)}</td>
+                    <td class="num">${diff
+                      ? `<span class="delta down">${Fmt.signed(diff)}</span>`
+                      : `<span class="badge up">${UI.icon("check", 12)}</span>`}</td>
+                  </tr>`;
+                }).join("")}
+              </tbody>
+              <tfoot><tr>
+                <td style="font-weight:600">סה״כ</td>
+                <td class="num" style="color:var(--muted)">${Fmt.moneyExact(control.total)}</td>
+                <td class="num" style="font-weight:600">${Fmt.moneyExact(liveTotal)}</td>
+                <td class="num">${drift
+                  ? `<span class="delta down">${Fmt.signed(drift)}</span>`
+                  : `<span class="badge up">${UI.icon("check", 12)}</span>`}</td>
+              </tr></tfoot>
+            </table>
+          </div>
+        </div>
+      </section>`;
+    }).join("");
+
+    return `<div class="grid cols-2" style="align-items:start">${blocks}</div>`;
+  }
+
   function render(root, ctx) {
     const years = Store.years();
     const saved = Store.state.savedAt;
     const manual = Store.sales().filter((s) => s.source === "manual").length;
+    const book = Metrics.catalog();
 
     root.innerHTML = `
       <div class="grid cols-2" style="align-items:start">
@@ -50,10 +120,10 @@ window.ViewSettings = (function () {
         body: `
           <div class="grid cols-4" style="gap:0">
             ${[
-              ["לקוחות בתיק", Fmt.number(Store.parties().length)],
+              ["לקוחות (יעד משלוח)", Fmt.number(book.shipTo.size)],
+              ["משלמים בלבד", Fmt.number(book.payerOnly.size)],
               ["תנועות מכירה", Fmt.number(Store.sales().length)],
               ["מתוכן נרשמו ידנית", Fmt.number(manual)],
-              ["שנים", years.join(" · ")],
             ].map(([label, value], i) => `
               <div class="kpi" style="${i ? "border-inline-start:1px solid var(--line)" : ""}">
                 <div class="kpi-label">${label}</div>
@@ -61,8 +131,8 @@ window.ViewSettings = (function () {
               </div>`).join("")}
           </div>
           <div class="toolbar" style="border-bottom:0;border-top:1px solid var(--line)">
-            <span class="hint">${saved ? `נשמר לאחרונה ${new Date(saved).toLocaleString("he-IL")}`
-              : "עוד לא נשמר שינוי"}</span>
+            <span class="hint">שנים ${years.join(" · ")}${
+              saved ? ` · נשמר לאחרונה ${new Date(saved).toLocaleString("he-IL")}` : ""}</span>
             <div class="spacer">
               <button class="btn btn-danger" id="reset">
                 ${UI.icon("undo", 15)} איפוס לנתוני הדוחות המקוריים</button>
@@ -70,14 +140,7 @@ window.ViewSettings = (function () {
           </div>`,
       })}
 
-      ${UI.card("מאיפה הנתונים", {
-        body: `<p class="hint" style="line-height:1.7">
-          הנתונים הופקו מדוחות "ניתוח מכירות (ת.משלוח) — מחירים" של 2025 ו-2026.
-          סכומי כל 21 החודשים והסכום הכולל הוצלבו מול הסיכומים שבדוח עצמו
-          ותואמים לאגורה: ${Fmt.moneyExact(16203057.74)} ב-2025
-          ו-${Fmt.moneyExact(11228824.09)} ב-2026.
-        </p>`,
-      })}`;
+      ${reconciliation(ctx)}`;
 
     root.querySelector("#xl-export").addEventListener("click", () => App.exportExcel());
 

@@ -240,8 +240,34 @@ window.App = (function () {
                   ["details", "פרטים"], ["activity", `פעילות${
                     activities.length ? ` · ${activities.length}` : ""}`]];
 
+    const book = Metrics.catalog();
+    const related = [];
+    if (row.parent) {
+      related.push(`אתר של <a href="#" data-customer="${Fmt.escape(row.parent)}">${
+        Fmt.escape(Store.partyName(row.parent))}</a>`);
+    }
+    if (row.sites && row.sites.length) {
+      related.push(`חשבון אב של ${row.sites.map((siteNo) => (
+        `<a href="#" data-customer="${Fmt.escape(siteNo)}">${
+          Fmt.escape(Store.partyName(siteNo))}</a>`)).join(" · ")}`);
+    }
+    if (book.payerOnly.has(no)) {
+      related.push("מופיע בדוח כלקוח משלם בלבד, לא כיעד משלוח");
+    }
+
+    const notice = row.isBucket
+      ? `<div class="notice warn">${UI.icon("alert", 16)}<div>
+           <strong>סל מרוכז, לא לקוח</strong>
+           <span>כך הדוח מקבץ מכירות קטנות. המחזור נספר בסיכומים, אבל הרשומה
+           מוחרגת מהדירוגים ומרשימות הטיפול — אין כאן חברה אחת להתקשר אליה.</span>
+         </div></div>`
+      : related.length
+        ? `<div class="notice">${UI.icon("users", 16)}<div>${related.join("<br>")}</div></div>`
+        : "";
+
     const panes = {
       overview: `
+        ${notice}
         <div class="grid cols-4">
           <section class="card kpi">
             <div class="kpi-label">${ctx.year} · עד ${Fmt.month(view.lastMonth)}</div>

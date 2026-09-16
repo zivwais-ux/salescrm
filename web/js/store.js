@@ -163,6 +163,9 @@ window.Store = (function () {
     },
     target: (no, year) => state.targets.get(`${no}|${year}`) || 0,
 
+    /** סיכומי הבקרה כפי שהודפסו בדוח המקורי, לפי שנה. */
+    control: (year) => ((window.GADOT_DATASET.control || {})[String(year)] || null),
+
     /* --------------------------------------------------------------- כתיבה */
     setSale(customerNo, payerNo, year, month, amount, agentNo) {
       const agent = agentNo || defaultAgent();

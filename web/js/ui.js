@@ -35,6 +35,7 @@ window.UI = (function () {
     phone: '<path d="M7.5 4.5h3l1.3 3.3-1.9 1.4a10.5 10.5 0 0 0 4.9 4.9l1.4-1.9 3.3 1.3v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 5.5 6.7a2 2 0 0 1 2-2.2Z"/>',
     mail: '<rect x="3.6" y="5.4" width="16.8" height="13.2" rx="2"/><path d="m4.4 7 7.6 5.4L19.6 7"/>',
     note: '<path d="M6 4.5h12v15H6z"/><path d="M9 9h6M9 12.5h6M9 16h3"/>',
+    chart: '<path d="M4 19.5h16"/><path d="M7 19.5V12M11.5 19.5V7M16 19.5v-5.5"/>',
   };
 
   function icon(name, size = 17) {
