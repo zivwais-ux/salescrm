@@ -174,7 +174,8 @@ window.ViewCustomers = (function () {
         body: `
           <div class="form-grid">
             <label class="stacked"><span>מספר לקוח</span>
-              <input class="input" id="new-no" inputmode="numeric" placeholder="202500000"></label>
+              <input class="input" id="new-no" inputmode="numeric"
+                     placeholder="המספר כפי שהוא בדוח"></label>
             <label class="stacked"><span>שם הלקוח</span>
               <input class="input" id="new-name" placeholder="שם החברה"></label>
           </div>
