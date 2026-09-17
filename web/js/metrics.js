@@ -45,6 +45,26 @@ window.Metrics = (function () {
     return cached;
   }
 
+  /**
+   * החודש האחרון בשנה כשהוא עדיין לא מלא.
+   *
+   * דוח שהופק באמצע החודש סופר רק את מה שנשלח עד אותו יום, וספטמבר 2026
+   * אכן מראה 387 אלף מול כ-1.4 מיליון בחודש רגיל. הסכום עצמו נכון ונשאר
+   * כמו שהוא — אבל חודש כזה אסור שייכנס לממוצע או לתחזית, שם הוא היה גורר
+   * את כל השנה כלפי מטה ומציג ירידה שלא קרתה. הזיהוי הוא יחסי: פחות
+   * ממחצית החציון של ששת החודשים שלפניו.
+   */
+  function partialMonth({ year, agent } = {}) {
+    const last = Store.closedMonth(year);
+    if (!last || last < 4) return null;
+    const months = monthly({ year, agent });
+    const before = months.slice(Math.max(0, last - 7), last - 1).filter((v) => v > 0);
+    if (before.length < 3) return null;
+    const sorted = before.slice().sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    return months[last - 1] > 0 && months[last - 1] < median * 0.5 ? last : null;
+  }
+
   /** מסנן תנועות לפי שנה/סוכן. agent === "all" מבטל את הסינון. */
   function rows({ year, agent }) {
     return Store.sales().filter((s) => (
@@ -91,7 +111,7 @@ window.Metrics = (function () {
    */
   function overview({ year, agent }) {
     const priorYear = year - 1;
-    const lastMonth = Store.lastMonth(year);
+    const lastMonth = Store.closedMonth(year);
     const current = byCustomer({ year, agent });
     const prior = byCustomer({ year: priorYear, agent });
 
@@ -165,7 +185,12 @@ window.Metrics = (function () {
 
     const monthsCur = monthly({ year, agent });
     const monthsPrior = monthly({ year: priorYear, agent });
-    const runRate = lastMonth ? (totalYtd / lastMonth) * 12 : 0;
+    // ממוצע ותחזית נבנים רק על חודשים מלאים; חודש שהדוח תפס באמצעו נספר
+    // בסכום אבל לא בקצב.
+    const partial = partialMonth({ year, agent });
+    const fullMonths = partial ? lastMonth - 1 : lastMonth;
+    const fullTotal = sum(monthsCur.slice(0, fullMonths));
+    const runRate = fullMonths ? (fullTotal / fullMonths) * 12 : 0;
     const targetTotal = sum(customers.map((c) => c.target));
 
     return {
@@ -176,7 +201,9 @@ window.Metrics = (function () {
       delta: totalYtd - totalPrior,
       priorFullYear: sum(monthsPrior),
       monthsCur, monthsPrior,
-      avgMonth: lastMonth ? totalYtd / lastMonth : 0,
+      avgMonth: fullMonths ? fullTotal / fullMonths : 0,
+      partialMonth: partial,
+      fullMonths,
       runRate,
       targetTotal,
       targetPct: targetTotal ? (totalYtd / targetTotal) * 100 : null,
@@ -217,6 +244,163 @@ window.Metrics = (function () {
     return { list, total };
   }
 
+  /* ------------------------------------------------------------ רב-שנתי ---
+     חמש שנים אינן "עוד נתונים" אלא שאלה אחרת: לא כמה נמכר החודש, אלא לאן
+     העסק הולך. שלוש צורות עונות עליה, ולכל אחת תפקיד משלה — סך שנתי (גודל),
+     שנים-עשר חודשים מתגלגלים (מגמה בלי רעש עונתי), וחודש מול שנה (עונתיות). */
+
+  /** סך המכירות בכל שנה, עם השינוי מול השנה שלפניה. */
+  function yearly({ agent } = {}) {
+    const years = Store.years();
+    const out = years.map((year) => {
+      const months = monthly({ year, agent });
+      return { year, months, total: sum(months), closed: Store.closedMonth(year) };
+    });
+    out.forEach((row, i) => {
+      const prior = out[i - 1];
+      row.prior = prior ? prior.total : null;
+      row.changePct = prior ? change(row.total, prior.total) : null;
+      row.delta = prior ? row.total - prior.total : null;
+      // שנה שעוד לא נסגרה אינה בת-השוואה לשנה מלאה, ולכן היא מסומנת ככזו.
+      row.partial = row.closed < 12;
+    });
+    return out;
+  }
+
+  /**
+   * שנים-עשר חודשים מתגלגלים: בכל נקודה, כמה נמכר בשנה שהסתיימה בה.
+   * זו הצורה שמראה מגמה בלי שהעונתיות תצייר גלים שאין להם משמעות.
+   */
+  function rolling12({ agent } = {}) {
+    const years = Store.years();
+    const flat = [];
+    years.forEach((year) => {
+      const months = monthly({ year, agent });
+      const closed = Store.closedMonth(year);
+      months.slice(0, closed).forEach((value, i) => flat.push({ year, month: i + 1, value }));
+    });
+    return flat.map((point, i) => ({
+      ...point,
+      // רק נקודה שיש מאחוריה שנה שלמה מקבלת ערך; אחרת הקו היה מטפס
+      // מאפס בתחילת הסדרה ומצייר "צמיחה" שלא קרתה.
+      rolling: i >= 11 ? sum(flat.slice(i - 11, i + 1).map((p) => p.value)) : null,
+    }));
+  }
+
+  /** מטריצת חודש מול שנה — הבסיס לגרף העונתיות. */
+  function seasonality({ agent } = {}) {
+    const years = Store.years();
+    const rows = years.map((year) => ({
+      year, months: monthly({ year, agent }), closed: Store.closedMonth(year),
+    }));
+    const max = Math.max(1, ...rows.flatMap((r) => r.months));
+    const byMonth = Array.from({ length: 12 }, (_, i) => {
+      const values = rows.filter((r) => r.closed > i).map((r) => r.months[i]);
+      return values.length ? sum(values) / values.length : 0;
+    });
+    return { rows, max, byMonth, avg: sum(byMonth) / 12 };
+  }
+
+  /** פילוח הסוכנים בכל שנה — אותם גוונים לאותו סוכן בכל השנים. */
+  function agentYears({ agent } = {}) {
+    const years = Store.years();
+    const totals = new Map();
+    Store.sales().forEach((s) => {
+      if (agent && agent !== "all" && s.agent !== agent) return;
+      totals.set(s.agent, (totals.get(s.agent) || 0) + s.a);
+    });
+    const order = [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([no]) => no);
+    const major = order.slice(0, 3);
+    const rows = years.map((year) => {
+      const split = new Map();
+      rows_(year).forEach((s) => {
+        const key = major.includes(s.agent) ? s.agent : "other";
+        split.set(key, (split.get(key) || 0) + s.a);
+      });
+      const items = major.map((no, i) => ({
+        no, name: Store.agentName(no), value: split.get(no) || 0, color: series(i),
+      }));
+      if (split.get("other")) {
+        items.push({ no: "other", name: "סוכנים נוספים", value: split.get("other"),
+                     color: series(3) });
+      }
+      return { year, items, total: sum(items.map((i) => i.value)) };
+    });
+    return { rows, major };
+
+    function rows_(year) {
+      return Store.sales().filter((s) => s.y === year
+        && (!agent || agent === "all" || s.agent === agent));
+    }
+  }
+
+  const series = (i) => (window.Charts ? Charts.series(i) : "");
+
+  /**
+   * מי צמח ומי נשחק לאורך השנים: השוואה בין השנה האחרונה שנסגרה לבין
+   * השנה המקבילה לה חמש שנים קודם, על אותם חודשים בדיוק.
+   */
+  function trajectory({ agent } = {}) {
+    const years = Store.years();
+    if (years.length < 2) return { from: null, to: null, rising: [], falling: [] };
+    const to = years[years.length - 1];
+    const from = years[0];
+    const months = Math.min(Store.closedMonth(to), Store.closedMonth(from));
+    const book = catalog();
+    const at = (year) => {
+      const map = new Map();
+      rows({ year, agent }).forEach((s) => {
+        if (s.m <= months) map.set(s.c, (map.get(s.c) || 0) + s.a);
+      });
+      return map;
+    };
+    const first = at(from);
+    const last = at(to);
+    // מסלול כל לקוח לאורך השנים נבנה במעבר אחד על התנועות: מעבר ללקוח ולשנה
+    // היה עולה מיליוני השוואות על חמש שנות נתונים.
+    const path = new Map();
+    const slot = new Map(years.map((year, i) => [year, i]));
+    rows({ agent }).forEach((s) => {
+      let line = path.get(s.c);
+      if (!line) path.set(s.c, line = Array(years.length).fill(0));
+      line[slot.get(s.y)] += s.a;
+    });
+    const list = [...new Set([...first.keys(), ...last.keys()])]
+      .filter((no) => !book.buckets.has(no))
+      .map((no) => {
+        const start = first.get(no) || 0;
+        const end = last.get(no) || 0;
+        return { no, name: Store.partyName(no), start, end, delta: end - start,
+                 changePct: change(end, start),
+                 years: path.get(no) || Array(years.length).fill(0) };
+      });
+    return {
+      from, to, months,
+      rising: list.filter((c) => c.delta > 0).sort((a, b) => b.delta - a.delta),
+      falling: list.filter((c) => c.delta < 0).sort((a, b) => a.delta - b.delta),
+    };
+  }
+
+  /** מסלול כל לקוח לאורך השנים, במעבר אחד על התנועות. */
+  function yearPaths({ agent } = {}) {
+    const years = Store.years();
+    const slot = new Map(years.map((year, i) => [year, i]));
+    const map = new Map();
+    rows({ agent }).forEach((s) => {
+      let line = map.get(s.c);
+      if (!line) map.set(s.c, line = Array(years.length).fill(0));
+      line[slot.get(s.y)] += s.a;
+    });
+    return { years, map };
+  }
+
+  /** שורות שהדוח תמחר במטבע אחר — מסומנות, לא מוסתרות. */
+  function foreign() {
+    return Store.sales().filter((s) => s.cur).map((s) => ({
+      ...s, name: Store.partyName(s.c),
+    })).sort((a, b) => b.y - a.y || b.a - a.a);
+  }
+
   /** פירוט חודשי של לקוח בודד לאורך כל השנים. */
   function customerHistory(no) {
     const years = Store.years();
@@ -229,5 +413,7 @@ window.Metrics = (function () {
   }
 
   return { rows, byCustomer, monthly, overview, customerHistory, agentSplit,
+           yearly, rolling12, seasonality, agentYears, trajectory, yearPaths, foreign,
+           partialMonth,
            catalog, change, sum };
 })();

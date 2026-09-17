@@ -43,6 +43,18 @@
   --chart-grid:    oklch(0.922 0.006 265);
   --chart-prior:   oklch(0.855 0.012 265);
 
+  /* סולם עוצמה למפת החום: גוון אחד, חמש מדרגות, בהיר לכהה. הדיו נקבע לכל
+     מדרגה בנפרד — טקסט כהה עד המדרגה השלישית ולבן משם, כדי שכל תא יעמוד
+     בניגודיות ולא רק רובם. */
+  --heat-0:  oklch(0.972 0.002 265);
+  --heat-1:  oklch(0.945 0.028 265);
+  --heat-2:  oklch(0.878 0.062 265);
+  --heat-3:  oklch(0.760 0.115 265);
+  --heat-4:  oklch(0.565 0.165 265);
+  --heat-5:  oklch(0.430 0.150 265);
+  --heat-ink-low:  oklch(0.300 0.060 265);
+  --heat-ink-high: #fff;
+
   /* --- מבנה --- */
   --r-sm: 6px;
   --r: 10px;
@@ -102,6 +114,16 @@
 
   --chart-grid:    #242830;
   --chart-prior:   #414751;
+
+  --heat-0:  #161a21;
+  --heat-1:  #1b2534;
+  --heat-2:  #22354f;
+  --heat-3:  #2c4a78;
+  --heat-4:  #35619f;
+  --heat-5:  #3f6dbb;
+  /* במצב לילה הסולם מטפס מהמשטח כלפי מעלה, ולכן דיו בהיר על כל מדרגה */
+  --heat-ink-low:  #f3f4f6;
+  --heat-ink-high: #f3f4f6;
 
   --tint-l: 0.335;
 
@@ -268,7 +290,10 @@ svg { display: block; }
 .topbar-tools { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
 .no-mobile { display: inline-flex; }
 
-.view { padding: 22px 24px 48px; display: grid; gap: 16px; align-content: start; }
+/* עמודה אחת שאינה גדלה מעבר לרוחב שיש: בלי minmax(0,1fr) עמודת גריד
+   מתרחבת עד רוחב התוכן המלא, ושם ארוך בשורה אחת היה מותח את כל המסך. */
+.view { padding: 22px 24px 48px; display: grid; grid-template-columns: minmax(0, 1fr);
+        gap: 16px; align-content: start; }
 
 /* --------------------------------------------------------------- controls -- */
 .btn {
@@ -649,7 +674,9 @@ tfoot td {
 }
 
 /* ------------------------------------------------------------------ lists -- */
-.list { display: grid; }
+/* עמודה אחת קשיחה: עמודת גריד ברירת-מחדל נמתחת לרוחב התוכן המלא, ושורה
+   עם שם ארוך היתה מותחת איתה את כל המסך במקום לקצר את השם. */
+.list { display: grid; grid-template-columns: minmax(0, 1fr); }
 .list-row {
   display: flex;
   align-items: center;
@@ -1130,6 +1157,272 @@ kbd {
 .toolbar .spacer { margin-inline-start: auto; }
 .toolbar-chips { border-bottom: 1px solid var(--line); }
 
+/* ------------------------------------------------------------ סרגל הקשר --
+   השנה והסוכן יושבים מעל התוכן, מתחת לכותרת, ונדבקים לראש המסך בגלילה: מה
+   שקובע כל מספר על המסך צריך להיות גלוי בזמן שקוראים אותו. */
+.ctxbar {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 24px;
+  background: color-mix(in oklch, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.ctxbar[hidden] { display: none; }
+
+.year-seg { overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+.year-seg::-webkit-scrollbar { display: none; }
+.year-seg button {
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  min-width: 52px;
+}
+
+.agent-field { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
+.agent-field > span { font-size: 12px; color: var(--muted); }
+.agent-field .select { height: 30px; font-size: 12.5px; }
+
+/* ----------------------------------------------------------- מפת עונתיות --
+   עוצמה בגוון אחד. הערך כתוב בתא עצמו, ולכן הצבע מוסיף קריאה מהירה במקום
+   להיות הדרך היחידה לדעת מה יש שם. */
+.heat { display: grid; gap: 3px; }
+.heat-row {
+  display: grid;
+  grid-template-columns: 42px repeat(var(--heat-cols), minmax(0, 1fr));
+  gap: 3px;
+  align-items: stretch;
+}
+.heat-label {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+}
+.heat-cell-label {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding-bottom: 2px;
+}
+.heat-cell {
+  display: grid;
+  place-items: center;
+  min-height: 34px;
+  border-radius: var(--r-sm);
+  background: var(--heat-0);
+  font-size: 11px;
+  color: var(--heat-ink-low);
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  white-space: nowrap;
+  transition: outline-color .12s;
+  outline: 2px solid transparent;
+}
+.heat-cell:hover { outline-color: var(--line-strong); }
+.heat-cell.l0 { background: var(--heat-0); color: var(--muted); }
+.heat-cell.l1 { background: var(--heat-1); }
+.heat-cell.l2 { background: var(--heat-2); }
+.heat-cell.l3 { background: var(--heat-3); }
+.heat-cell.l4 { background: var(--heat-4); color: var(--heat-ink-high); }
+.heat-cell.l5 { background: var(--heat-5); color: var(--heat-ink-high); }
+
+.heat-scale { display: flex; align-items: center; gap: 4px; padding-top: 10px; }
+.heat-scale i { width: 20px; height: 10px; border-radius: 3px; min-height: 0; }
+.heat-scale .hint { margin-inline: 4px; }
+
+/* -------------------------------------------------------- תמהיל הסוכנים -- */
+.mix-years { display: grid; gap: 12px; }
+.mix-row { display: grid; gap: 5px; }
+.mix-head { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.mix-year { font-weight: 650; font-variant-numeric: tabular-nums; direction: ltr; }
+.mix-head .num { margin-inline-start: auto; }
+
+/* -------------------------------------------------------------- פס שנים --
+   חמישה עמודונים בגובה יחסי, מתחת למספר הגדול: הקשר מיידי ומעבר שנה בנגיעה. */
+.years-strip {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+.year-pill {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  padding: 6px 4px 5px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  background: none;
+  cursor: pointer;
+  transition: background .13s, border-color .13s;
+}
+.year-pill:hover { background: var(--surface-2); }
+.year-pill.is-active { background: var(--accent-soft); border-color: var(--accent-line); }
+.year-pill-bar {
+  display: flex;
+  align-items: flex-end;
+  height: 26px;
+  width: 100%;
+  max-width: 34px;
+}
+.year-pill-bar i {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: var(--chart-prior);
+  transition: background .13s;
+}
+.year-pill.is-active .year-pill-bar i { background: var(--accent); }
+.year-pill-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+}
+.year-pill.is-active .year-pill-label { color: var(--accent-text); font-weight: 600; }
+.year-pill-value {
+  font-size: 10.5px;
+  color: var(--muted);
+  direction: ltr;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------- עריכת חודשים בטלפון --- */
+.month-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+/* 16px נשמר כדי ש-iOS לא יזום בכניסה לשדה; הריפוד מצטמצם במקומו כדי
+   שסכום בן תשע ספרות ייכנס בלי להיחתך. */
+.month-grid .input { text-align: center; direction: ltr; font-variant-numeric: tabular-nums;
+                     padding-inline: 4px; }
+.grid-card { cursor: pointer; }
+
+/* ---------------------------------------------------------------- משימות --
+   שורת משימה היא יחידת פעולה: סימון ביצוע בצד אחד, מה ואצל מי באמצע,
+   ודחייה ומחיקה בקצה. הכול בשורה אחת, ובטלפון בשתיים — בלי תפריט נסתר. */
+.composer { padding: 12px 14px; display: grid; gap: 10px; }
+.composer-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.composer-title { flex: 1; min-width: 200px; height: 38px; font-size: 14px; }
+.composer-opts { gap: 8px; }
+.composer-opts .seg button { font-size: 12px; padding: 0 9px; }
+
+.sticky-chips {
+  position: sticky;
+  top: calc(var(--header-h) + 48px);
+  z-index: 20;
+  background: var(--bg);
+  border-radius: var(--r);
+}
+
+.chip-count {
+  display: inline-block;
+  min-width: 17px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.chip-count.is-late { background: var(--down-soft); color: var(--down); }
+.seg button.is-active .chip-count { background: var(--accent-soft); color: var(--accent-text); }
+
+.tasks { display: grid; gap: 14px; }
+.task-group { display: grid; gap: 6px; }
+.task-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 2px;
+}
+
+.task {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 13px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-sm);
+  transition: border-color .13s, box-shadow .13s;
+}
+.task:hover { border-color: var(--line-strong); }
+.task.is-done { opacity: .62; }
+.task.is-done .task-title { text-decoration: line-through; }
+
+.task-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 99px;
+  background: var(--surface);
+  color: transparent;
+  cursor: pointer;
+  transition: background .13s, border-color .13s, color .13s;
+}
+.task-check:hover { border-color: var(--up); color: var(--up); }
+.task.is-done .task-check {
+  background: var(--up);
+  border-color: var(--up);
+  color: #fff;
+}
+
+.task-main { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.task-title { font-size: 13.5px; font-weight: 550; line-height: 1.4; }
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px 10px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.task-meta > * { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.task-kind svg { color: var(--muted); }
+.task-party { color: var(--text-2); font-weight: 500; max-width: 46vw; }
+.task-party:hover { color: var(--accent-text); text-decoration: underline; }
+.task-due.is-late { color: var(--down); font-weight: 600; }
+.task-body {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  padding-top: 1px;
+}
+.task-tools { display: flex; align-items: center; gap: 4px; flex: none; }
+
+/* כפתור צף לרישום חדש — האגודל מגיע אליו בלי לטפס אל ראש המסך */
+.fab {
+  position: fixed;
+  inset-inline-end: 16px;
+  bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  display: none;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 0;
+  border-radius: 99px;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+}
+.fab:active { transform: translateY(1px); }
+
 /* ------------------------------------------------------------- responsive --
    מתחת ל-1000px המערכת מתנהגת כאפליקציה: ניווט בסרגל תחתון, גיליונות מסך
    מלא, ושטחי נגיעה של 44px ומעלה. */
@@ -1159,6 +1452,22 @@ kbd {
     padding: 14px 14px 96px;         /* מקום לסרגל התחתון */
     gap: 12px;
   }
+
+  /* חמש שנים וסוכן בשורה אחת ברוחב טלפון: השנים נמתחות לרוחב הפנוי, כך
+     שכולן נראות בלי גלילה אופקית ובלי שהראשונה תיחתך. */
+  .fab { display: grid; }
+  .sticky-chips { top: var(--header-h); }
+  .task { padding: 12px; gap: 10px; }
+  .task-check { width: 30px; height: 30px; }
+  .task-tools .btn { height: 32px; }
+  .ctxbar { padding: 8px 14px; gap: 8px; }
+  .year-seg { flex: 1; min-width: 0; }
+  .year-seg button { flex: 1; min-width: 0; height: 32px; padding: 0 4px; font-size: 12px; }
+  .agent-field { flex: none; }
+  .agent-field .select { height: 32px; width: 118px; padding-inline: 8px 22px; font-size: 12px; }
+  .heat-row { grid-template-columns: 34px repeat(var(--heat-cols), minmax(0, 1fr)); gap: 2px; }
+  .heat-cell { min-height: 30px; font-size: 9.5px; border-radius: 4px; }
+  .heat-cell-label { font-size: 9.5px; }
 
   /* --- סרגל תחתון --- */
   .tabbar {
@@ -1221,8 +1530,10 @@ kbd {
 
   /* --- שטחי נגיעה --- */
   /* החיפוש והפעולה נשארים במקומם; רק שורת המסננים נגללת אופקית */
-  .toolbar { flex-wrap: nowrap; }
-  .toolbar .search { flex: 1; min-width: 0; }
+  /* סרגל שנכפה לשורה אחת מותח את העמוד מעבר לרוחב המסך ומבריח את התוכן
+     שמאלה. בטלפון הוא נשבר לשורות, והחיפוש תופס את מה שנשאר. */
+  .toolbar { flex-wrap: wrap; }
+  .toolbar .search { flex: 1 1 160px; min-width: 0; }
   .toolbar-chips {
     overflow-x: auto;
     scrollbar-width: none;
@@ -1235,9 +1546,10 @@ kbd {
   .field > span { display: none; }
 
   .btn { height: 40px; padding: 0 14px; }
-  .btn-icon { width: 40px; }
+  /* כפתור אייקון הוא ריבוע: הריפוד של כפתור רגיל היה מועך את האייקון עצמו */
+  .btn-icon { width: 40px; padding: 0; }
   .btn-sm { height: 34px; }
-  .btn-icon.btn-sm { width: 34px; }
+  .btn-icon.btn-sm { width: 34px; padding: 0; }
   .input, .select { height: 42px; font-size: 16px; }   /* 16px מונע זום ב-iOS */
   .nav-item { padding: 11px 12px; font-size: 15px; }
   .seg button { height: 34px; }
@@ -1255,7 +1567,9 @@ kbd {
   .kpi-label { font-size: 11px; }
   .kpi-foot { font-size: 10.5px; }
 
-  /* בטלפון קודם המספר ומי דורש טיפול; הגרפים והמשימות אחריהם */
+  /* בטלפון קודם המספר ומי דורש טיפול; הגרפים והמשימות אחריהם. ברירת המחדל
+     מוצהרת במפורש, אחרת קטע בלי סימון היה קופץ לפני הכותרת של המסך. */
+  .view > * { order: 6; }
   .view > .sec-hero { order: 1; }
   .view > .sec-kpi { order: 2; }
   .view > .sec-actions { order: 3; }
@@ -1297,23 +1611,28 @@ kbd {
   /* --- טבלאות שהופכות לרשימה --- */
   .cards-on-mobile thead { display: none; }
   .cards-on-mobile, .cards-on-mobile tbody, .cards-on-mobile tr { display: block; width: 100%; }
+  /* שורת טבלה הופכת לכרטיס, והתאים יושבים שניים בשורה: שורה לכל שדה היתה
+     מותחת את הכרטיס לגובה מסך ומשאירה שני לקוחות לגלילה. */
   .cards-on-mobile tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     margin-bottom: 10px;
     padding: 12px 13px;
     background: var(--surface);
   }
-  .cards-on-mobile td { display: flex; justify-content: space-between; align-items: center;
-                        gap: 12px; padding: 5px 0; border: 0; }
+  .cards-on-mobile td { display: grid; gap: 1px; align-content: start;
+                        padding: 0; border: 0; }
   .cards-on-mobile td::before {
     content: attr(data-label);
-    font-size: 11.5px;
+    font-size: 10.5px;
     color: var(--muted);
-    flex: none;
   }
-  .cards-on-mobile td.cell-main { display: block; padding-bottom: 9px;
-                                  border-bottom: 1px solid var(--line); margin-bottom: 5px; }
+  .cards-on-mobile td.cell-main { grid-column: 1 / -1; display: block; padding-bottom: 9px;
+                                  border-bottom: 1px solid var(--line); }
+  .cards-on-mobile td > .badge, .cards-on-mobile td > .delta { justify-self: start; }
   .cards-on-mobile td.cell-main::before { content: none; }
   .cards-on-mobile td.hide-mobile { display: none; }
   .table-wrap.cards-wrap { max-height: none !important; overflow: visible; }

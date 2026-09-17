@@ -6,16 +6,19 @@ window.App = (function () {
   const cfg = window.APP_CONFIG;
   const ctx = { year: null, agent: "all", view: "dashboard" };
 
-  // חמישה מסכים, ארבעה מהם בסרגל התחתון בנייד. ה"תפריט" מחזיק את השאר.
+  // שישה מסכים, ארבעה מהם בסרגל התחתון בנייד. ה"תפריט" מחזיק את השאר.
+  // `period` מסמן מסך שקורא את השנה הנבחרת — רק שם מוצג בורר השנה.
   const NAV = [
     { id: "dashboard", label: "בית", icon: "dashboard", view: () => ViewDashboard,
-      title: "בית", tab: true },
+      title: "בית", tab: true, period: true },
+    { id: "trend", label: "מגמה", icon: "trendUp", view: () => ViewTrend,
+      title: "מגמה", tab: true, period: true },
     { id: "customers", label: "לקוחות", icon: "customers", view: () => ViewCustomers,
-      title: "לקוחות", tab: true },
+      title: "לקוחות", tab: true, period: true },
     { id: "activity", label: "משימות", icon: "activity", view: () => ViewActivity,
       title: "משימות", tab: true },
     { id: "grid", label: "טבלת חודשים", icon: "grid", view: () => ViewGrid,
-      title: "טבלת חודשים" },
+      title: "טבלת חודשים", period: true },
     { id: "settings", label: "נתונים וקבצים", icon: "settings", view: () => ViewSettings,
       title: "נתונים וקבצים" },
   ];
@@ -62,14 +65,6 @@ window.App = (function () {
           ${n[item.id] ? `<span class="nav-count">${Fmt.number(n[item.id])}</span>` : ""}
         </button>`).join("")}
 
-      <div class="nav-label">תצוגה</div>
-      <div class="nav-fields">
-        <label class="stacked"><span>שנה</span>
-          <select class="select" id="year-select"></select></label>
-        <label class="stacked"><span>סוכן</span>
-          <select class="select" id="agent-select"></select></label>
-      </div>
-
       <div class="sidebar-foot">
         <div class="nav-label" style="padding-top:0">תצוגה</div>
         <div class="seg theme-seg" role="group" aria-label="בהיר או כהה">
@@ -82,32 +77,64 @@ window.App = (function () {
         </button>
       </div>`;
 
-    const years = Store.years();
-    if (!ctx.year || !years.includes(ctx.year)) ctx.year = years[years.length - 1];
-    $("#year-select").innerHTML = years.slice().reverse()
-      .map((y) => `<option ${y === ctx.year ? "selected" : ""}>${y}</option>`).join("");
-    $("#agent-select").innerHTML = ['<option value="all">כל הסוכנים</option>']
-      .concat(Store.state.agents.map((a) => `<option value="${Fmt.escape(a.no)}" ${
-        ctx.agent === a.no ? "selected" : ""}>${Fmt.escape(a.name)}</option>`)).join("");
-
     UI.on($("#sidebar"), "[data-nav]", "click", (e) => go(e.currentTarget.dataset.nav));
-    $("#year-select").addEventListener("change", (e) => {
-      ctx.year = Number(e.target.value);
+    UI.on($("#sidebar"), "[data-theme-set]", "click",
+      (e) => setTheme(e.currentTarget.dataset.themeSet));
+    $("#export-btn").addEventListener("click", exportExcel);
+  }
+
+  /**
+   * סרגל ההקשר: השנה הנבחרת והסוכן.
+   *
+   * שתי הבחירות האלה משנות כל מספר שעל המסך, ולכן הן יושבות מעל התוכן ולא
+   * בתוך תפריט צד שנסגר: בנייד זה ההבדל בין שתי נגיעות לחמש. עם חמש שנים
+   * הבורר הוא טבעת אחת של כפתורים, ולא רשימה נפתחת שמסתירה את מה שיש בה.
+   */
+  function renderCtxbar() {
+    const bar = $("#ctxbar");
+    const item = NAV.find((n) => n.id === ctx.view);
+    if (!item.period) {
+      bar.innerHTML = "";
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+    const years = Store.years();
+    const agents = [{ no: "all", name: "כל הסוכנים" }]
+      .concat(Store.state.agents.filter((a) => a.no));
+
+    bar.innerHTML = `
+      <div class="seg year-seg" role="group" aria-label="שנה">
+        ${years.slice().reverse().map((y) => `
+          <button data-year="${y}" class="${y === ctx.year ? "is-active" : ""}"
+                  aria-pressed="${y === ctx.year}">${y}</button>`).join("")}
+      </div>
+      <label class="field agent-field">
+        <span class="no-mobile">סוכן</span>
+        <select class="select" id="agent-select">
+          ${agents.map((a) => `<option value="${Fmt.escape(a.no)}" ${
+            ctx.agent === a.no ? "selected" : ""}>${Fmt.escape(a.name)}</option>`).join("")}
+        </select>
+      </label>`;
+
+    UI.on(bar, "[data-year]", "click", (e) => {
+      ctx.year = Number(e.currentTarget.dataset.year);
       render();
     });
     $("#agent-select").addEventListener("change", (e) => {
       ctx.agent = e.target.value;
       render();
     });
-    UI.on($("#sidebar"), "[data-theme-set]", "click",
-      (e) => setTheme(e.currentTarget.dataset.themeSet));
-    $("#export-btn").addEventListener("click", exportExcel);
   }
 
   function renderHeader() {
     const item = NAV.find((n) => n.id === ctx.view);
     const view = Metrics.overview(ctx);
-    const sub = ctx.view === "settings" ? ""
+    const years = Store.years();
+    const sub = ctx.view === "trend"
+      ? `${years[0]}–${years[years.length - 1]}${
+          ctx.agent === "all" ? "" : ` · ${Store.agentName(ctx.agent)}`}`
+      : !NAV.find((n) => n.id === ctx.view).period ? ""
       : `${ctx.year} · ינואר–${Fmt.month(view.lastMonth)}${
           ctx.agent === "all" ? "" : ` · ${Store.agentName(ctx.agent)}`}`;
 
@@ -163,8 +190,11 @@ window.App = (function () {
   }
 
   function render() {
+    const years = Store.years();
+    if (!ctx.year || !years.includes(ctx.year)) ctx.year = years[years.length - 1];
     renderSidebar();
     renderHeader();
+    renderCtxbar();
     renderTabbar();
     const root = $("#view");
     root.innerHTML = "";
@@ -368,8 +398,10 @@ window.App = (function () {
         }) : ""}`,
 
       history: UI.card("היסטוריה שנתית", {
+        sub: `${history[0].year}–${history[history.length - 1].year} · כל שנה וכל חודש`,
         flush: true,
-        body: `<div class="table-wrap"><table>
+        body: `<div class="card-body" id="card-years"></div>
+          <div class="table-wrap"><table>
           <thead><tr><th>שנה</th>${Fmt.SHORT.map((m) => (
             `<th class="num">${m}</th>`)).join("")}<th class="num">סה״כ</th></tr></thead>
           <tbody>${history.map((h) => `
@@ -465,6 +497,17 @@ window.App = (function () {
         });
         UI.on(node, "[data-customer]", "click", (e) => openCustomer(e.currentTarget.dataset.customer));
         UI.on(node, "[data-toggle]", "click", (e) => Store.toggleActivity(e.currentTarget.dataset.toggle));
+
+        const yearsChart = node.querySelector("#card-years");
+        if (yearsChart) {
+          Charts.bars(yearsChart, [{
+            label: "מחזור", values: history.map((h) => h.total),
+            color: Charts.color("--accent"),
+            colorAt: (i) => (history[i].year === ctx.year
+              ? Charts.color("--accent") : Charts.color("--chart-prior")),
+          }], history.map((h) => String(h.year)),
+          { height: 180, labels: true, legend: false });
+        }
 
         const chart = node.querySelector("#card-chart");
         if (chart) {
@@ -623,8 +666,15 @@ window.App = (function () {
     });
   }
 
-  /* ---------------------------------------------------------- חיפוש מהיר */
-  function openPalette() {
+  /* ---------------------------------------------------------- חיפוש מהיר
+     אותו חלון משמש גם כבורר לקוח: ברשימה של מאות שמות, שדה חיפוש שמסנן תוך
+     כדי הקלדה הוא הדרך היחידה שאפשר לקרוא לה מהירה. `onChoose` מקבל את
+     הבחירה במקום לפתוח את כרטיס הלקוח. */
+  function pickCustomer(onChoose, options = {}) {
+    openPalette({ onChoose, ...options });
+  }
+
+  function openPalette({ onChoose = null } = {}) {
     const view = Metrics.overview(ctx);
     const byNo = new Map(view.customers.map((c) => [c.no, c]));
     let active = 0;
@@ -664,7 +714,8 @@ window.App = (function () {
       const party = matches[i];
       if (!party) return;
       close();
-      openCustomer(party.no);
+      if (onChoose) onChoose(party.no);
+      else openCustomer(party.no);
     };
 
     $("#palette-root").innerHTML = `
@@ -762,6 +813,17 @@ window.App = (function () {
       }
     });
 
+    // כמה מסכים נבנים אחרת בטלפון ובמחשב (טבלת החודשים, למשל). סיבוב המכשיר
+    // או שינוי גודל החלון חוצים את הגבול, ולכן המסך נבנה מחדש — אבל רק
+    // כשחוצים אותו, ולא בכל פיקסל של גרירה.
+    let phone = window.innerWidth <= 1000;
+    window.addEventListener("resize", () => {
+      const now = window.innerWidth <= 1000;
+      if (now === phone) return;
+      phone = now;
+      render();
+    });
+
     // מצב "אוטומטי" ממשיך לעקוב אחרי המכשיר גם בלי רענון.
     media.addEventListener("change", () => {
       if (themePref() === "auto") {
@@ -773,10 +835,17 @@ window.App = (function () {
     // כל שינוי בנתונים מצייר מחדש את המסך הפעיל ואת כרטיס הלקוח הפתוח.
     Store.onChange(render);
     render();
+
+    // דוח חדש שנכנס לנתונים ששמורים במכשיר — נאמר במפורש, אחרת המספרים
+    // פשוט משתנים בלי הסבר.
+    const merged = Store.state.merged;
+    if (merged && merged.years.length) {
+      toast(`נוספו נתוני ${merged.years.join(", ")} — העריכות והרישומים שלך נשמרו`, "up");
+    }
   }
 
   return { init, render, go, toast, confirm, openDrawer, closeDrawer, openCustomer,
-           exportExcel, saveAs, toggleChat, ask: askAssistant, ctx };
+           pickCustomer, exportExcel, saveAs, toggleChat, ask: askAssistant, ctx };
 })();
 
 document.addEventListener("DOMContentLoaded", () => {

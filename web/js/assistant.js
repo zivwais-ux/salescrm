@@ -25,9 +25,21 @@ window.Assistant = (function () {
       const year = Number(explicit[1]);
       if (Store.years().includes(year)) return year;
     }
-    if (has(text, "אשתקד", "שנה שעברה", "שעברה")) return ctx.year - 1;
+    if (has(text, "אשתקד", "שנה שעברה", "שעברה")) {
+      const prior = ctx.year - 1;
+      return Store.years().includes(prior) ? prior : ctx.year;
+    }
     return ctx.year;
   }
+
+  /** כל השנים שנזכרו בשאלה במפורש, לפי סדר הופעתן. */
+  function readYears(text) {
+    return [...new Set((text.match(/\b20\d{2}\b/g) || []).map(Number))]
+      .filter((y) => Store.years().includes(y));
+  }
+
+  const TREND_WORDS = ["מגמה", "לאורך השנים", "לאורך הזמן", "כל השנים", "חמש שנים",
+                       "היסטוריה", "שנים אחורה", "מאז"];
 
   /** מזהה חודש בשם או במספר. */
   function readMonth(text) {
@@ -62,13 +74,16 @@ window.Assistant = (function () {
     Store.parties().forEach((party) => {
       const name = strip(party.name);
       const words = name.split(" ")
-        .filter((w) => w.length > 2 && !GENERIC.has(w));
+        // מספר בתוך שם חברה ("תביעה משפטית 2024") אינו סימן מזהה: שנה בשאלה
+        // היא שנה, ולא הלקוח ששמו נגמר באותו מספר.
+        .filter((w) => w.length > 2 && !GENERIC.has(w) && !/^\d+$/.test(w));
       if (!words.length) return;
       const hits = words.filter((w) => text.includes(w));
       // דרוש לפחות סימן מזהה אחד באורך משמעותי, לא רק שבריר משותף.
       if (!hits.some((w) => w.length >= 4)) return;
       const score = hits.join("").length + (text.includes(name) ? 100 : 0);
-      if (score >= 5 && (!best || score > best.score)) best = { party, score };
+      // ארבע אותיות הן שם חברה שלם ("קרגל"), ולכן הן די והותר לזיהוי.
+      if (score >= 4 && (!best || score > best.score)) best = { party, score };
     });
     return best ? best.party : null;
   }
@@ -205,6 +220,14 @@ window.Assistant = (function () {
           return { title: `ל${party.name} אין תנועות ב-${year}`,
                    body: chip(party.no, "פתיחת הכרטיס") };
         }
+        if (has(t, ...TREND_WORDS)) {
+          const history = Metrics.customerHistory(party.no).slice().reverse();
+          return {
+            title: `${party.name} · לאורך השנים`,
+            body: history.map((h) => line(String(h.year), Fmt.money(h.total))).join("")
+              + chip(party.no, "פתיחת הכרטיס"),
+          };
+        }
         const month = readMonth(t);
         if (month) {
           return {
@@ -242,6 +265,56 @@ window.Assistant = (function () {
           body: line("מחזור בשנה", Fmt.money(total))
             + line(`כל ${year - 1}`, Fmt.money(priorTotal))
             + line("לקוחות שקנו", Fmt.number(customers)),
+        };
+      },
+    },
+    {
+      // השוואה בין שתי שנים שנאמרו במפורש. הבדיקה קודמת לשאלת ה"כמה" הכללית,
+      // אחרת "כמה מכרנו ב-2022 לעומת 2025" היה נענה על שנה אחת בלבד.
+      id: "compare",
+      match: (t) => readYears(t).length >= 2,
+      answer(t, ctx) {
+        const [a, b] = readYears(t).sort((x, y) => x - y);
+        const rows = Metrics.yearly({ agent: ctx.agent });
+        const first = rows.find((r) => r.year === a);
+        const second = rows.find((r) => r.year === b);
+        const months = Math.min(first.closed, second.closed);
+        const upto = (row) => Metrics.sum(row.months.slice(0, months));
+        const partial = months < 12;
+        return {
+          title: `${a} מול ${b}`,
+          body: line(`${a}${partial ? ` · ינואר–${Fmt.month(months)}` : ""}`,
+              Fmt.money(upto(first)))
+            + line(`${b}${partial ? ` · ינואר–${Fmt.month(months)}` : ""}`,
+              Fmt.money(upto(second)))
+            + line("שינוי", Fmt.percent(Metrics.change(upto(second), upto(first)), 1))
+            + line("הפרש", Fmt.signed(upto(second) - upto(first)))
+            + (partial ? `<p class="ans-note">ההשוואה על ${months} החודשים הראשונים
+                 בכל שנה, כי ${b} עדיין נספרת.</p>` : "")
+            + '<button class="ans-chip" data-goto="trend">מסך המגמה</button>',
+        };
+      },
+    },
+    {
+      // תמונת חמש השנים. נבדקת אחרי זיהוי לקוח, כדי ש"מה המגמה של קרגל"
+      // יישאר שאלה על קרגל.
+      id: "trend",
+      match: (t) => has(t, ...TREND_WORDS),
+      answer(t, ctx) {
+        const rows = Metrics.yearly({ agent: ctx.agent });
+        const roll = Metrics.rolling12({ agent: ctx.agent });
+        const last = roll[roll.length - 1] || {};
+        const prev = roll[roll.length - 13] || {};
+        return {
+          title: `המגמה · ${rows[0].year}–${rows[rows.length - 1].year}`,
+          body: rows.slice().reverse().map((r) => line(
+            `${r.year}${r.partial ? ` (${r.closed} חודשים)` : ""}`,
+            `${Fmt.money(r.total)}${r.changePct === null ? ""
+              : ` · ${Fmt.percent(r.changePct, 1)}`}`)).join("")
+            + (last.rolling ? `<p class="ans-note">שנים-עשר החודשים האחרונים:
+                ${Fmt.money(last.rolling)}${prev.rolling
+                  ? `, מול ${Fmt.money(prev.rolling)} ב-12 שלפניהם` : ""}.</p>` : "")
+            + '<button class="ans-chip" data-goto="trend">מסך המגמה</button>',
         };
       },
     },
@@ -286,6 +359,8 @@ window.Assistant = (function () {
     "מי הלקוחות הגדולים?",
     "מי לא קנה חודשיים?",
     "כמה מכר קונברפלקס?",
+    "מה המגמה בחמש השנים?",
+    "כמה מכרנו ב-2022 לעומת 2025?",
     "מה התחזית לסוף השנה?",
   ];
 

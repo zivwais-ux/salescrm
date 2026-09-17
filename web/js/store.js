@@ -16,11 +16,15 @@ window.Store = (function () {
     targets: new Map(),   // `${no}|${year}` -> amount
     activities: [],
     savedAt: null,
+    seedVersion: 0,
   };
 
-  // אותו צמד לקוח–משלם יכול להופיע באותו חודש אצל שני סוכנים,
-  // ולכן הסוכן הוא חלק מזהות התנועה ולא רק תכונה שלה.
-  const saleKey = (c, p, agent, y, m) => `${c}|${p}|${agent}|${y}|${m}`;
+  // אותו צמד לקוח–משלם יכול להופיע באותו חודש אצל שני סוכנים, ולכן הסוכן הוא
+  // חלק מזהות התנועה ולא רק תכונה שלה. אותו צמד גם מופיע פעמיים באותו חודש
+  // כששורה אחת תומחרה במטבע אחר — ולכן גם המטבע מזהה, אחרת שורה אחת דורסת
+  // את השנייה והסכום השנתי מפסיק להתאים לדוח.
+  const saleKey = (c, p, agent, y, m, cur) => (
+    `${c}|${p}|${agent}|${y}|${m}${cur ? `|${cur}` : ""}`);
   const defaultAgent = () => (state.agents[0] || {}).no;
   const emptyProfile = () => ({ status: "active", tier: "", segment: "", contact_name: "",
                                 contact_phone: "", contact_email: "", notes: "" });
@@ -61,21 +65,59 @@ window.Store = (function () {
    * וכל תנועה מפנה אליהם לפי מיקום ברשימה:
    *   [מיקום הלקוח, מיקום המשלם, מיקום הסוכן, שנה, חודש, סכום]
    */
+  function seedSales() {
+    const seed = window.GADOT_DATASET;
+    const partyNo = seed.parties.map(([no]) => no);
+    const agentNo = seed.agents.map(([no]) => no);
+    return seed.sales.map(([c, p, agent, y, m, a, cur]) => {
+      const sale = { c: partyNo[c], p: partyNo[p], agent: agentNo[agent],
+                     y, m, a, source: "erp" };
+      // הדוח מתמחר מעט שורות במטבע אחר ומחבר אותן לסיכומים כמו שהן. השורה
+      // נושאת את המטבע שלה כדי שמסך הנתונים יוכל להצביע עליהן.
+      if (cur) sale.cur = cur;
+      return sale;
+    });
+  }
+
   function seedFromDataset() {
     const seed = window.GADOT_DATASET;
     state.agents = seed.agents.map(([no, name]) => ({ no, name }));
     state.parties = new Map(seed.parties.map(([no, name]) => [
       no, { no, name, profile: emptyProfile() },
     ]));
-    const partyNo = seed.parties.map(([no]) => no);
-    const agentNo = seed.agents.map(([no]) => no);
-    state.sales = new Map(seed.sales.map(([c, p, agent, y, m, a]) => {
-      const sale = { c: partyNo[c], p: partyNo[p], agent: agentNo[agent],
-                     y, m, a, source: "erp" };
-      return [saleKey(sale.c, sale.p, sale.agent, y, m), sale];
-    }));
+    state.sales = new Map(seedSales().map((sale) => [
+      saleKey(sale.c, sale.p, sale.agent, sale.y, sale.m, sale.cur), sale]));
     state.targets = new Map();
     state.activities = [];
+    state.seedVersion = seed.seed_version || 1;
+  }
+
+  /**
+   * זרע חדש על נתונים שכבר שמורים בדפדפן.
+   *
+   * דוח חדש מוסיף שנים ומתקן קריאה של שנים קיימות, אבל מה שנרשם כאן ביד —
+   * עריכות, יעדים, פרטי לקוחות ורישומי פעילות — אינו נמצא באף דוח ואסור לו
+   * להימחק. ולכן: שורות ה-ERP מוחלפות במלואן, ושורה שאדם הקליד גוברת על
+   * שורת הדוח באותו מפתח.
+   */
+  function mergeSeed() {
+    const had = new Set([...state.sales.values()].map((s) => s.y));
+    const manual = [...state.sales.values()].filter((s) => s.source === "manual");
+    state.sales = new Map(seedSales().map((sale) => [
+      saleKey(sale.c, sale.p, sale.agent, sale.y, sale.m, sale.cur), sale]));
+    manual.forEach((s) => state.sales.set(
+      saleKey(s.c, s.p, s.agent, s.y, s.m, s.cur), s));
+
+    const seed = window.GADOT_DATASET;
+    state.agents = seed.agents.map(([no, name]) => ({ no, name }));
+    seed.parties.forEach(([no, name]) => {
+      const held = state.parties.get(no);
+      // שם שהמשתמש שינה ביד נשאר שלו; שאר הלקוחות מקבלים את שם הדוח האחרון.
+      if (!held) state.parties.set(no, { no, name, profile: emptyProfile() });
+      else if (!held.renamed) held.name = name;
+    });
+    state.seedVersion = seed.seed_version || 1;
+    return { years: seed.years.filter((y) => !had.has(y)), kept: manual.length };
   }
 
   function serialize() {
@@ -86,6 +128,7 @@ window.Store = (function () {
       sales: [...state.sales.values()],
       targets: [...state.targets.entries()],
       activities: state.activities,
+      seedVersion: state.seedVersion,
       savedAt: new Date().toISOString(),
     };
   }
@@ -96,10 +139,11 @@ window.Store = (function () {
       p.no, { ...p, profile: { ...emptyProfile(), ...(p.profile || {}) } },
     ]));
     state.sales = new Map((raw.sales || []).map((s) => [
-      saleKey(s.c, s.p, s.agent, s.y, s.m), s]));
+      saleKey(s.c, s.p, s.agent, s.y, s.m, s.cur), s]));
     state.targets = new Map(raw.targets || []);
     state.activities = raw.activities || [];
     state.savedAt = raw.savedAt || null;
+    state.seedVersion = raw.seedVersion || 0;
   }
 
   function persist() {
@@ -113,7 +157,9 @@ window.Store = (function () {
 
   function snapshot(label) {
     undoStack.push({ label, data: JSON.stringify(serialize()) });
-    if (undoStack.length > 30) undoStack.shift();
+    // כל צילום הוא עותק מלא של המצב, וחמש שנות תנועות שוקלות. שתים־עשרה
+    // פעולות אחורה מכסות כל טעות הקלדה סבירה בלי להחזיק עשרות עותקים בזיכרון.
+    if (undoStack.length > 12) undoStack.shift();
   }
 
   /** כל שינוי עובר כאן: צילום מצב, ביצוע, שמירה, רענון המסך. */
@@ -138,8 +184,12 @@ window.Store = (function () {
         try { hydrate(JSON.parse(saved)); } catch (err) { seedFromDataset(); }
       } else {
         seedFromDataset();
-        persist();
       }
+      const seed = window.GADOT_DATASET;
+      if (state.seedVersion < (seed.seed_version || 1)) {
+        state.merged = saved ? mergeSeed() : null;
+      }
+      persist();
       notify();
       return state;
     },
@@ -162,6 +212,15 @@ window.Store = (function () {
       return months.length ? Math.max(...months) : 12;
     },
     target: (no, year) => state.targets.get(`${no}|${year}`) || 0,
+
+    /** השנים שהדוחות מכסים, גם אם אין להן עדיין תנועות במערכת. */
+    seedYears: () => (window.GADOT_DATASET.years || []).slice(),
+
+    /** החודש האחרון שהדוח סגר בשנה — לא בהכרח החודש האחרון שיש בו מכירה. */
+    closedMonth(year) {
+      const closed = (window.GADOT_DATASET.last_closed_month || {})[String(year)];
+      return closed || api.lastMonth(year);
+    },
 
     /** סיכומי הבקרה כפי שהודפסו בדוח המקורי, לפי שנה. */
     control: (year) => ((window.GADOT_DATASET.control || {})[String(year)] || null),
@@ -194,7 +253,11 @@ window.Store = (function () {
     renameParty(no, name) {
       const party = state.parties.get(no);
       if (!party || !name.trim() || name.trim() === party.name) return;
-      commit(`שינוי שם ${party.name}`, () => { party.name = name.trim(); });
+      commit(`שינוי שם ${party.name}`, () => {
+        party.name = name.trim();
+        // מסומן כשם של אדם, כדי שדוח חדש לא ידרוס אותו בחזרה.
+        party.renamed = true;
+      });
     },
 
     deleteParty(no) {
@@ -237,6 +300,29 @@ window.Store = (function () {
       };
       commit("רישום פעילות", () => { state.activities.unshift(row); });
       return row;
+    },
+
+    /** עדכון רישום קיים — תאריך מעקב, כותרת או פירוט. */
+    updateActivity(id, patch) {
+      const row = state.activities.find((a) => a.id === id);
+      if (!row) return;
+      commit(`עדכון ${row.title}`, () => Object.assign(row, patch));
+    },
+
+    /** דחיית מעקב בימים, מהיום או מתאריך המעקב — המאוחר מביניהם. */
+    snoozeActivity(id, days) {
+      const row = state.activities.find((a) => a.id === id);
+      if (!row) return;
+      const today = new Date().toISOString().slice(0, 10);
+      const base = new Date(row.follow_up_on && row.follow_up_on > today
+        ? row.follow_up_on : today);
+      base.setDate(base.getDate() + days);
+      const next = base.toISOString().slice(0, 10);
+      commit(`דחיית ${row.title}`, () => {
+        row.follow_up_on = next;
+        row.done = false;
+      });
+      return next;
     },
 
     toggleActivity(id) {

@@ -66,13 +66,13 @@ window.Excel = (function () {
     });
 
     const raw = [["מס' לקוח", "שם לקוח", "מס' משלם", "שם משלם", "מס' סוכן",
-                  "שנה", "חודש", "סכום", "מקור"]];
+                  "שנה", "חודש", "סכום", "מטבע", "מקור"]];
     Store.sales()
       .filter((s) => !agent || agent === "all" || s.agent === agent)
       .sort((a, b) => (b.y - a.y) || (b.m - a.m) || (b.a - a.a))
       .forEach((s) => raw.push([
         s.c, Store.partyName(s.c), s.p, Store.partyName(s.p), s.agent,
-        s.y, s.m, round(s.a), s.source === "erp" ? "ERP" : "ידני",
+        s.y, s.m, round(s.a), s.cur || 'ש"ח', s.source === "erp" ? "ERP" : "ידני",
       ]));
     out.push({ name: "נתוני גלם", rows: raw });
 

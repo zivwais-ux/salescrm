@@ -9,66 +9,106 @@ window.ViewSettings = (function () {
    * משווה את מה שהמערכת מחזיקה עכשיו מול אותה שורה — כך שאחרי עריכה ידנית
    * רואים בדיוק במה המערכת כבר שונה מהדוח, במקום להניח שהיא זהה לו.
    */
+  const ui = { year: null };
+
   function reconciliation(ctx) {
     const years = Store.years().slice().reverse();
-    const blocks = years.map((year) => {
+    if (!ui.year || !years.includes(ui.year)) ui.year = ctx.year || years[0];
+
+    const state = (year) => {
       const control = Store.control(year);
-      if (!control) return "";
+      if (!control) return null;
       const live = Metrics.monthly({ year, agent: "all" });
       const liveTotal = Metrics.sum(live);
       // עיגול לאגורה לפני ההשוואה: סכום של אלפי מספרים עשרוניים משאיר שארית
       // זעירה בייצוג הבינארי, והיא אינה הפרש אמיתי מול הדוח.
-      const drift = Math.round((liveTotal - control.total) * 100) / 100;
-      const months = Object.keys(control.months).map(Number).sort((a, b) => a - b);
+      return { year, control, live, liveTotal,
+               drift: Math.round((liveTotal - control.total) * 100) / 100 };
+    };
 
-      return `<section class="card">
-        <header class="card-head">
-          <div>
-            <h3>${year}</h3>
-            <div class="sub">מול "סה״כ כללי" שבדוח המקורי</div>
-          </div>
-          <div class="spacer">
-            <span class="badge ${drift ? "warn" : "up"}">${
-              drift ? `הפרש ${Fmt.signed(drift)}` : "תואם לאגורה"}</span>
-          </div>
-        </header>
-        <div class="card-body flush">
-          <div class="table-wrap" style="max-height:290px">
-            <table>
-              <thead><tr>
-                <th>חודש</th><th class="num">בדוח</th>
-                <th class="num">במערכת</th><th class="num">הפרש</th>
-              </tr></thead>
-              <tbody>
-                ${months.map((m) => {
-                  const printed = control.months[String(m)];
-                  const actual = live[m - 1];
-                  const diff = Math.round((actual - printed) * 100) / 100;
-                  return `<tr>
-                    <td>${Fmt.month(m)}</td>
-                    <td class="num" style="color:var(--muted)">${Fmt.moneyExact(printed)}</td>
-                    <td class="num">${Fmt.moneyExact(actual)}</td>
-                    <td class="num">${diff
-                      ? `<span class="delta down">${Fmt.signed(diff)}</span>`
-                      : `<span class="badge up">${UI.icon("check", 12)}</span>`}</td>
-                  </tr>`;
-                }).join("")}
-              </tbody>
-              <tfoot><tr>
-                <td style="font-weight:600">סה״כ</td>
-                <td class="num" style="color:var(--muted)">${Fmt.moneyExact(control.total)}</td>
-                <td class="num" style="font-weight:600">${Fmt.moneyExact(liveTotal)}</td>
-                <td class="num">${drift
-                  ? `<span class="delta down">${Fmt.signed(drift)}</span>`
+    const all = years.map(state).filter(Boolean);
+    const current = all.find((row) => row.year === ui.year) || all[0];
+    if (!current) return "";
+    const months = Object.keys(current.control.months).map(Number).sort((a, b) => a - b);
+    const off = all.filter((row) => row.drift);
+
+    return UI.card("הצלבה מול הדוח המקורי", {
+      sub: off.length
+        ? `${off.length} שנים שונות מהדוח — ${off.map((r) => r.year).join(", ")}`
+        : `כל ${all.length} השנים תואמות לאגורה לשורת "סה״כ כללי" שהדוח מדפיס`,
+      actions: `<div class="seg">
+        ${all.map((row) => `<button data-year-check="${row.year}" class="${
+          row.year === ui.year ? "is-active" : ""}">${row.year}
+          <span class="chip-count ${row.drift ? "is-late" : ""}">${
+            row.drift ? "≠" : "✓"}</span></button>`).join("")}
+      </div>`,
+      flush: true,
+      body: `<div class="table-wrap" style="max-height:420px">
+        <table>
+          <thead><tr>
+            <th>חודש</th><th class="num">בדוח</th>
+            <th class="num">במערכת</th><th class="num">הפרש</th>
+          </tr></thead>
+          <tbody>
+            ${months.map((m) => {
+              const printed = current.control.months[String(m)];
+              const actual = current.live[m - 1];
+              const diff = Math.round((actual - printed) * 100) / 100;
+              return `<tr>
+                <td>${Fmt.month(m)}</td>
+                <td class="num" style="color:var(--muted)">${Fmt.moneyExact(printed)}</td>
+                <td class="num">${Fmt.moneyExact(actual)}</td>
+                <td class="num">${diff
+                  ? `<span class="delta down">${Fmt.signed(diff)}</span>`
                   : `<span class="badge up">${UI.icon("check", 12)}</span>`}</td>
-              </tr></tfoot>
-            </table>
-          </div>
-        </div>
-      </section>`;
-    }).join("");
+              </tr>`;
+            }).join("")}
+          </tbody>
+          <tfoot><tr>
+            <td style="font-weight:600">סה״כ ${current.year}</td>
+            <td class="num" style="color:var(--muted)">${
+              Fmt.moneyExact(current.control.total)}</td>
+            <td class="num" style="font-weight:600">${Fmt.moneyExact(current.liveTotal)}</td>
+            <td class="num">${current.drift
+              ? `<span class="delta down">${Fmt.signed(current.drift)}</span>`
+              : `<span class="badge up">${UI.icon("check", 12)} תואם</span>`}</td>
+          </tr></tfoot>
+        </table>
+      </div>`,
+    });
+  }
 
-    return `<div class="grid cols-2" style="align-items:start">${blocks}</div>`;
+  /**
+   * שורות שהדוח תמחר במטבע אחר.
+   *
+   * הדוח מחבר אותן לסיכומים שלו כמו שהן, ולכן גם המערכת — אחרת ההצלבה מול
+   * הדוח היתה מראה פער קבוע. הן מופיעות כאן כדי שמי שקורא מספר שנתי יידע
+   * בדיוק מה מונח בתוכו.
+   */
+  function foreignCard() {
+    const rows = Metrics.foreign();
+    if (!rows.length) return "";
+    return UI.card("שורות במטבע אחר", {
+      sub: `${rows.length} שורות שהדוח תמחר שלא בשקלים, וסיכם כמו שהן`,
+      flush: true,
+      body: `<div class="table-wrap"><table>
+        <thead><tr><th>לקוח</th><th>מועד</th><th>מטבע</th><th class="num">סכום בדוח</th></tr></thead>
+        <tbody>${rows.map((s) => `
+          <tr class="row-link" data-customer="${Fmt.escape(s.c)}">
+            <td>${Fmt.escape(s.name)}</td>
+            <td>${Fmt.month(s.m)} ${s.y}</td>
+            <td><span class="badge warn">${Fmt.escape(s.cur)}</span></td>
+            <td class="num">${Fmt.moneyExact(s.a).replace(" ₪", "")}</td>
+          </tr>`).join("")}</tbody>
+      </table></div>
+      <div class="toolbar" style="border-bottom:0">
+        <span class="hint">סך ${Fmt.money(Metrics.sum(rows.map((r) => r.a)))} מתוך
+          ${Fmt.money(Metrics.sum(Store.sales().map((r) => r.a)))} — כ-${
+          ((Metrics.sum(rows.map((r) => r.a))
+            / Metrics.sum(Store.sales().map((r) => r.a))) * 100).toFixed(1)}% מהמחזור.
+          הדוח אינו ממיר אותן לשקלים, וגם המערכת לא.</span>
+      </div>`,
+    });
   }
 
   function render(root, ctx) {
@@ -91,7 +131,7 @@ window.ViewSettings = (function () {
               </label>
             </div>
             <p class="hint" style="margin-top:12px">
-              הקובץ נבנה בארבעה גיליונות: ניתוח מכירות לכל שנה, נתוני גלם,
+              הקובץ נבנה לפי מבנה הדוח: גיליון ניתוח מכירות לכל שנה, נתוני גלם,
               סיכום חודשי, ויעדים ומעקב. הייבוא קורא את גיליון "נתוני גלם"
               (מס׳ לקוח, מס׳ משלם, שנה, חודש וסכום); שורה עם סכום 0 מוחקת את
               התנועה המתאימה.
@@ -140,7 +180,17 @@ window.ViewSettings = (function () {
           </div>`,
       })}
 
+      ${foreignCard()}
+
       ${reconciliation(ctx)}`;
+
+    UI.on(root, "[data-customer]", "click",
+      (e) => App.openCustomer(e.currentTarget.dataset.customer));
+
+    UI.on(root, "[data-year-check]", "click", (e) => {
+      ui.year = Number(e.currentTarget.dataset.yearCheck);
+      render(root, ctx);
+    });
 
     root.querySelector("#xl-export").addEventListener("click", () => App.exportExcel());
 
@@ -183,7 +233,7 @@ window.ViewSettings = (function () {
       App.confirm({
         title: "לאפס את כל הנתונים?",
         body: "השינויים הידניים, היעדים ורישומי הפעילות שנשמרו במחשב הזה יימחקו, "
-            + "והנתונים יחזרו לדוחות המקוריים של 2025 ו-2026.",
+            + `והנתונים יחזרו לדוחות המקוריים של ${years.join(", ")}.`,
         danger: "איפוס",
         onConfirm() {
           Store.resetToSeed();

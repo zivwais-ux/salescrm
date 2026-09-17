@@ -46,6 +46,9 @@ window.ViewCustomers = (function () {
   function render(root, ctx) {
     const view = Metrics.overview(ctx);
     const list = filtered(view);
+    // מסלול חמש השנים לכל לקוח — הוא עונה על "האם הירידה השנה היא מגמה או
+    // חודש חלש", וזו השאלה הראשונה שנשאלת מול טור שינוי אדום.
+    const paths = Metrics.yearPaths({ agent: ctx.agent });
     const shown = Metrics.sum(list.map((c) => c.ytd));
 
     root.innerHTML = UI.card("", {
@@ -91,8 +94,8 @@ window.ViewCustomers = (function () {
               ${th(`${view.year} עד כה`, "ytd", "num")}
               ${th(`${view.priorYear} מקביל`, "priorYtd", "num")}
               ${th("שינוי", "changePct", "num")}
-              <th class="num">מגמה חודשית</th>
-              ${th("חודשים פעילים", "activeMonths", "num")}
+              <th class="num">חודשי ${view.year}</th>
+              <th class="num">${paths.years.length} שנים</th>
               ${th("מכירה אחרונה", "lastActive", "num")}
               <th>סטטוס</th>
             </tr>
@@ -120,7 +123,8 @@ window.ViewCustomers = (function () {
                     style="color:var(--muted)">${Fmt.money(c.priorYtd)}</td>
                 <td class="num" data-label="שינוי">${UI.delta(c.changePct)}</td>
                 <td class="num hide-mobile">${Charts.sparkline(c.months)}</td>
-                <td class="num hide-mobile">${c.activeMonths}</td>
+                <td class="num hide-mobile">${Charts.sparkline(
+                  paths.map.get(c.no) || [], { flat: true, width: 64 })}</td>
                 <td class="num" data-label="מכירה אחרונה">${
                   c.lastActive ? Fmt.monthShort(c.lastActive) : "—"}</td>
                 <td data-label="סטטוס"><span class="badge ${status.tone}">${

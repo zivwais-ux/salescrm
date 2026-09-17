@@ -40,6 +40,76 @@ window.ViewGrid = (function () {
       .sort((a, b) => b.total - a.total);
   }
 
+  const isPhone = () => window.innerWidth <= 1000;
+
+  /**
+   * בטלפון הטבלה הרחבה אינה נקראת ואינה נערכת: ארבע-עשרה עמודות על מסך של
+   * 390 פיקסלים משאירות עמודה אחת גלויה. במקומה רשימת כרטיסים — שורה לכל
+   * לקוח עם הפס החודשי והסכום — וכל כרטיס נפתח לגיליון עריכה של שנים-עשר
+   * שדות גדולים, שנשמר בבת אחת.
+   */
+  function phoneList(page, ctx) {
+    return `<div class="list">${page.map((row) => `
+      <div class="list-row grid-card" data-edit="${Fmt.escape(row.c)}|${
+        Fmt.escape(row.p)}|${Fmt.escape(row.agent || "")}">
+        ${UI.avatar(Store.partyName(row.c))}
+        <div class="grow">
+          <div class="list-title ellipsis">${Fmt.escape(Store.partyName(row.c))}</div>
+          <div class="list-sub ellipsis">${row.p === row.c
+            ? Fmt.escape(row.c)
+            : `משלם: ${Fmt.escape(Store.partyName(row.p))}`}</div>
+        </div>
+        <div style="display:grid;justify-items:end;gap:3px">
+          <span class="list-value">${Fmt.money(row.total)}</span>
+          ${Charts.sparkline(row.months, { width: 74 })}
+        </div>
+        <span style="color:var(--muted);flex:none">${UI.icon("chevron", 16)}</span>
+      </div>`).join("") || UI.empty("אין שורות להצגה",
+        "אפשר לבטל את סינון התנועות או לנקות את החיפוש.")}</div>`;
+  }
+
+  /** גיליון עריכה לשורה אחת: שנים-עשר חודשים, שמירה אחת. */
+  function editRow(key, ctx) {
+    const [c, p, agent] = key.split("|");
+    const row = rows(ctx).find((r) => r.c === c && r.p === p && (r.agent || "") === agent)
+      || { c, p, agent, months: Array(12).fill(0) };
+
+    App.openDrawer({
+      title: Fmt.escape(Store.partyName(c)),
+      sub: `${Fmt.escape(c)} · ${ctx.year}${p === c ? ""
+        : ` · משלם ${Fmt.escape(Store.partyName(p))}`}`,
+      body: UI.card("", {
+        body: `<div class="month-grid">
+            ${row.months.map((v, i) => `
+              <label class="stacked"><span>${Fmt.SHORT[i]}</span>
+                <input class="input num" inputmode="decimal" data-month="${i + 1}"
+                       data-raw="${v || ""}" value="${v || ""}"></label>`).join("")}
+          </div>
+          <div class="row-actions" style="margin-top:16px">
+            <button class="btn btn-primary" id="months-save">שמירת החודשים</button>
+            <button class="btn" data-close-drawer>ביטול</button>
+          </div>
+          <p class="hint" style="margin-top:10px">שדה ריק מוחק את התנועה של אותו חודש.</p>`,
+      }),
+      onReady(panel) {
+        panel.querySelector("#months-save").addEventListener("click", () => {
+          let changed = 0;
+          panel.querySelectorAll("[data-month]").forEach((input) => {
+            const before = Number(input.dataset.raw || 0);
+            const after = input.value.trim() ? Fmt.parseNumber(input.value) : 0;
+            if (after === before) return;
+            Store.setSale(c, p, ctx.year, Number(input.dataset.month), after,
+                          agent || (ctx.agent === "all" ? undefined : ctx.agent));
+            changed += 1;
+          });
+          App.closeDrawer();
+          App.toast(changed ? `${changed} חודשים עודכנו` : "לא השתנה דבר",
+                    changed ? "up" : "", { undo: !!changed });
+        });
+      },
+    });
+  }
+
   function render(root, ctx) {
     const all = rows(ctx);
     const pages = Math.max(1, Math.ceil(all.length / ui.size));
@@ -51,7 +121,7 @@ window.ViewGrid = (function () {
     root.innerHTML = UI.card("", {
       flush: true,
       body: `
-      <div class="toolbar">
+      <div class="toolbar toolbar-wrap">
         <label class="search">
           ${UI.icon("search", 15)}
           <input class="input" type="search" id="grid-search" placeholder="חיפוש לקוח או משלם"
@@ -59,14 +129,18 @@ window.ViewGrid = (function () {
         </label>
         <label class="check">
           <input type="checkbox" id="grid-active" ${ui.onlyActive ? "checked" : ""}>
-          <span>רק שורות עם תנועה ב-${ctx.year}</span>
+          <span class="no-mobile">רק שורות עם תנועה ב-${ctx.year}</span>
+          <span class="only-mobile">רק עם תנועה</span>
         </label>
         <div class="spacer row-actions">
-          <span class="hint">${Fmt.number(all.length)} שורות · ${Fmt.money(Metrics.sum(totals))}</span>
-          <button class="btn btn-primary" id="grid-add">${UI.icon("plus", 15)} שורת מכירה</button>
+          <span class="hint no-mobile">${Fmt.number(all.length)} שורות · ${
+            Fmt.money(Metrics.sum(totals))}</span>
+          <button class="btn btn-primary" id="grid-add">${
+            UI.icon("plus", 15)}<span class="no-mobile">שורת מכירה</span></button>
         </div>
       </div>
 
+      ${isPhone() ? phoneList(page, ctx) : `
       <div class="table-wrap" style="max-height:calc(100vh - 250px)">
         <table class="grid-table">
           <thead>
@@ -117,10 +191,12 @@ window.ViewGrid = (function () {
             </tr>
           </tfoot>
         </table>
-      </div>
+      </div>`}
 
       <div class="toolbar" style="border-bottom:0;border-top:1px solid var(--line)">
-        <span class="hint">עריכה ישירה בתא · תא ריק מוחק את התנועה · חצים לניווט</span>
+        <span class="hint">${isPhone()
+          ? "נגיעה בשורה פותחת את שנים-עשר החודשים לעריכה"
+          : "עריכה ישירה בתא · תא ריק מוחק את התנועה · חצים לניווט"}</span>
         ${pages > 1 ? `<div class="spacer row-actions">
           <button class="btn btn-sm" id="page-prev" ${ui.page === 0 ? "disabled" : ""}>הקודם</button>
           <span class="hint">עמוד ${ui.page + 1} מתוך ${pages}</span>
@@ -150,7 +226,8 @@ window.ViewGrid = (function () {
     if (prev) prev.addEventListener("click", () => { ui.page -= 1; render(root, ctx); });
     if (next) next.addEventListener("click", () => { ui.page += 1; render(root, ctx); });
 
-    wireCells(root, ctx);
+    UI.on(root, "[data-edit]", "click", (e) => editRow(e.currentTarget.dataset.edit, ctx));
+    if (!isPhone()) wireCells(root, ctx);
   }
 
   /**

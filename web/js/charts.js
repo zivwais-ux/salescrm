@@ -169,10 +169,20 @@ window.Charts = (function () {
         const value = s.values[i] || 0;
         const barH = value > 0 ? Math.max(2, (value / max) * plot.h) : 0;
         if (!barH) return;
+        const x = startX + si * (barW + GAP);
         svg.appendChild(el("path", {
-          d: columnPath(startX + si * (barW + GAP), pad.top + plot.h - barH, barW, barH),
-          fill: s.color, style: "pointer-events:none",
+          d: columnPath(x, pad.top + plot.h - barH, barW, barH),
+          // צבע לעמודה בודדת מאפשר להדגיש אחת מתוך סדרה — למשל השנה הנבחרת
+          // מול שאר השנים, שהן הרקע שלה ולא סדרה נפרדת.
+          fill: s.colorAt ? s.colorAt(i) : s.color, style: "pointer-events:none",
         }));
+        if (options.labels) {
+          svg.appendChild(el("text", {
+            x: x + barW / 2, y: pad.top + plot.h - barH - 7, "font-size": 11.5,
+            fill: color("--text-2"), "text-anchor": "middle", "font-family": "inherit",
+            "font-weight": 600, direction: "ltr", style: "pointer-events:none",
+          }, Fmt.short(value)));
+        }
       });
 
       svg.appendChild(el("text", {
@@ -260,6 +270,148 @@ window.Charts = (function () {
     if (options.legend !== false && lines.length > 1) {
       legend(host, lines.map((s) => ({ label: s.label, color: s.color })));
     }
+  }
+
+  /**
+   * קו על ציר זמן ארוך — נקודה לכל חודש, בלי סימון על כל נקודה.
+   * ערך null הוא חור אמיתי בסדרה (טרם נצברה שנה שלמה), ולכן הקו נקטע שם
+   * במקום להיסגר על אפס ולצייר צמיחה שלא היתה.
+   */
+  function trend(host, points, options = {}) {
+    const height = options.height || 240;
+    const pad = { top: 16, bottom: 30, side: options.side ?? 46 };
+    const svg = frame(host, height);
+    const tip = tooltip(host);
+    const values = points.map((p) => p.value).filter((v) => v !== null && v !== undefined);
+    const max = niceMax(Math.max(1, ...values));
+    const min = options.zero === false
+      ? Math.max(0, Math.min(...values) * 0.9) : 0;
+    const plot = { w: 1000 - pad.side * 2, h: height - pad.top - pad.bottom };
+    const step = plot.w / Math.max(1, points.length - 1);
+    const xAt = (i) => 1000 - pad.side - step * i;
+    const yAt = (v) => pad.top + plot.h - ((v - min) / (max - min)) * plot.h;
+
+    [0, 0.25, 0.5, 0.75, 1].forEach((ratio) => {
+      const y = pad.top + plot.h * ratio;
+      svg.appendChild(el("line", {
+        x1: pad.side, x2: 1000 - pad.side, y1: y, y2: y,
+        stroke: color("--chart-grid"), "stroke-width": 1, "shape-rendering": "crispEdges",
+      }));
+      if (ratio === 0 || ratio === 1) {
+        svg.appendChild(el("text", {
+          x: 1000 - pad.side + 9, y: y + 4, "font-size": 11.5, fill: color("--muted"),
+          "font-family": "inherit", direction: "ltr",
+        }, Fmt.short(ratio === 1 ? min : max)));
+      }
+    });
+
+    // גבולות השנים כקווי עוגן: בלעדיהם אי אפשר לקרוא איפה שנה נגמרת.
+    points.forEach((p, i) => {
+      if (p.month !== 1 || !i) return;
+      svg.appendChild(el("line", {
+        x1: xAt(i), x2: xAt(i), y1: pad.top, y2: pad.top + plot.h,
+        stroke: color("--line"), "stroke-width": 1, "shape-rendering": "crispEdges",
+      }));
+      svg.appendChild(el("text", {
+        x: xAt(i) - 6, y: height - 10, "font-size": 11.5, fill: color("--muted"),
+        "text-anchor": "end", "font-family": "inherit", direction: "ltr",
+      }, String(p.year)));
+    });
+
+    let path = "";
+    let open = false;
+    points.forEach((p, i) => {
+      if (p.value === null || p.value === undefined) { open = false; return; }
+      path += `${open ? "L" : "M"}${xAt(i).toFixed(1)},${yAt(p.value).toFixed(1)} `;
+      open = true;
+    });
+    svg.appendChild(el("path", {
+      d: path, fill: "none", stroke: options.color || color("--accent"), "stroke-width": 2,
+      "stroke-linejoin": "round", "stroke-linecap": "round",
+      "vector-effect": "non-scaling-stroke",
+    }));
+
+    const last = points.length - 1;
+    if (points[last] && points[last].value != null) {
+      svg.appendChild(el("circle", {
+        cx: xAt(last), cy: yAt(points[last].value), r: 4.5,
+        fill: options.color || color("--accent"),
+        stroke: color("--surface"), "stroke-width": 2,
+      }));
+    }
+
+    const cursor = el("line", {
+      y1: pad.top, y2: pad.top + plot.h, stroke: color("--line-strong"),
+      "stroke-width": 1, opacity: 0, "shape-rendering": "crispEdges",
+    });
+    svg.appendChild(cursor);
+
+    const hot = el("rect", {
+      x: pad.side, y: pad.top, width: plot.w, height: plot.h,
+      fill: "transparent", style: "cursor:crosshair",
+    });
+    const locate = (event) => {
+      const box = host.getBoundingClientRect();
+      const ratio = (box.right - event.clientX) / box.width;
+      const i = Math.round(Math.max(0, Math.min(points.length - 1,
+        (ratio * 1000 - pad.side) / step)));
+      const point = points[i];
+      if (!point || point.value == null) return tip.hide();
+      cursor.setAttribute("x1", xAt(i));
+      cursor.setAttribute("x2", xAt(i));
+      cursor.setAttribute("opacity", 1);
+      tip.show(tipRows(options.label ? options.label(point) : "",
+        [{ name: options.name || "", value: Fmt.money(point.value) }]),
+        host.clientWidth * (xAt(i) / 1000), pad.top + 10);
+    };
+    hot.addEventListener("pointermove", locate);
+    hot.addEventListener("pointerdown", locate);
+    hot.addEventListener("pointerleave", () => {
+      cursor.setAttribute("opacity", 0);
+      tip.hide();
+    });
+    svg.appendChild(hot);
+    host.prepend(svg);
+  }
+
+  /**
+   * מפת חום חודש מול שנה — עוצמה היא הנתון, ולכן גוון אחד בחמש מדרגות
+   * מבהיר לכהה. הערך עצמו כתוב בתא בשולחן העבודה, וקיימת תצוגת טבלה מלאה,
+   * כך שהצבע לעולם אינו הדרך היחידה לקרוא מספר.
+   */
+  function heatmap(host, rows, labels, options = {}) {
+    const values = rows.flatMap((r) => r.values).filter((v) => v > 0);
+    const max = options.max || Math.max(1, ...values);
+    // הסולם נמתח בין הערך הנמוך לגבוה ולא מאפס: כשכל החודשים נעים בין 1.2
+    // ל-1.9 מיליון, סולם מאפס היה צובע את כולם באותה מדרגה ולא אומר דבר.
+    const min = values.length ? Math.min(...values) : 0;
+    const span = max - min || max || 1;
+    const level = (v) => (v <= 0 ? 0 : Math.max(1, Math.min(5,
+      Math.ceil(((v - min) / span) * 5))));
+    host.innerHTML = `<div class="heat" style="--heat-cols:${labels.length}">
+      <div class="heat-row heat-head">
+        <span class="heat-label"></span>
+        ${labels.map((l) => `<span class="heat-cell-label">${Fmt.escape(l)}</span>`).join("")}
+      </div>
+      ${rows.map((row) => `
+        <div class="heat-row">
+          <span class="heat-label">${Fmt.escape(row.label)}</span>
+          ${row.values.map((v, i) => {
+            const empty = v === null || v === undefined;
+            return `<span class="heat-cell l${empty ? 0 : level(v)}"
+              data-row="${Fmt.escape(row.label)}" data-col="${Fmt.escape(labels[i])}"
+              data-value="${empty ? "" : Fmt.money(v)}"
+              title="${Fmt.escape(`${row.label} · ${labels[i]}`)}: ${
+                empty ? "אין נתונים" : Fmt.money(v)}">
+              <b>${empty ? "" : (options.format || Fmt.short)(v)}</b></span>`;
+          }).join("")}
+        </div>`).join("")}
+    </div>
+    <div class="heat-scale">
+      <span class="hint">${Fmt.shortMoney(min)}</span>
+      ${[1, 2, 3, 4, 5].map((l) => `<i class="heat-cell l${l}"></i>`).join("")}
+      <span class="hint">${Fmt.shortMoney(max)}</span>
+    </div>`;
   }
 
   /**
@@ -370,6 +522,6 @@ window.Charts = (function () {
     </table></div>`;
   }
 
-  return { bars, cumulative, diverging, stacked, sparkline, ranking, table,
-           series, color, columnPath };
+  return { bars, cumulative, trend, heatmap, diverging, stacked, sparkline, ranking,
+           table, series, color, columnPath };
 })();

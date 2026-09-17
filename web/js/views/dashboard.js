@@ -52,9 +52,36 @@ window.ViewDashboard = (function () {
       </div>`).join("")}</div>`;
   }
 
+  /**
+   * פס השנים: חמש שנים כחמישה עמודונים, הנבחרת מודגשת.
+   *
+   * הוא עונה על השאלה שמתעוררת מיד אחרי המספר הגדול — "וזה טוב?" — בלי
+   * לעזוב את המסך, והוא גם הדרך המהירה ביותר לעבור שנה: נגיעה אחת.
+   */
+  function yearsStrip(ctx) {
+    const rows = Metrics.yearly({ agent: ctx.agent });
+    if (rows.length < 2) return "";
+    const max = Math.max(...rows.map((r) => r.total)) || 1;
+    return `<div class="years-strip" role="group" aria-label="מעבר בין שנים">
+      ${rows.slice().reverse().map((r) => `
+        <button class="year-pill ${r.year === ctx.year ? "is-active" : ""}"
+                data-set-year="${r.year}" aria-pressed="${r.year === ctx.year}"
+                title="${r.year}: ${Fmt.money(r.total)}${r.partial ? " · שנה חלקית" : ""}">
+          <span class="year-pill-bar"><i style="height:${
+            Math.max(8, (r.total / max) * 100)}%"></i></span>
+          <span class="year-pill-label">${r.year}</span>
+          <span class="year-pill-value">${Fmt.short(r.total)}</span>
+        </button>`).join("")}
+    </div>`;
+  }
+
   function render(root, ctx) {
     const view = Metrics.overview(ctx);
     const period = `ינואר–${Fmt.month(view.lastMonth)}`;
+    const partial = view.partialMonth
+      ? `<span class="badge warn" title="הדוח הופק במהלך החודש, ולכן הוא סופר בו רק חלק מהמשלוחים. הסכום נכון, אבל הוא לא חודש שלם.">${
+          UI.icon("alert", 12)} ${Fmt.month(view.partialMonth)} עדיין חלקי</span>`
+      : "";
     const prior = `${view.priorYear}`;
     const openTasks = Store.state.activities.filter((a) => !a.done);
     const today = new Date().toISOString().slice(0, 10);
@@ -75,7 +102,9 @@ window.ViewDashboard = (function () {
           <div class="hero-meta">
             <span class="badge">${Fmt.number(view.active.length)} לקוחות פעילים</span>
             <span class="badge">ממוצע ${Fmt.shortMoney(view.avgMonth)} לחודש</span>
+            ${partial}
           </div>
+          ${yearsStrip(ctx)}
         </div>
         <div class="hero-chart" id="chart-cumulative"></div>
       </section>
@@ -86,7 +115,10 @@ window.ViewDashboard = (function () {
               `כמה שקלים מכרנו השנה יותר או פחות מאותם ${view.lastMonth} חודשים ב-${prior}.`)}
         ${kpi("תחזית לסוף השנה", Fmt.money(view.runRate),
               `סגירת ${prior}: ${Fmt.shortMoney(view.priorFullYear)}`, "target",
-              `הממוצע החודשי עד כה כפול 12. זו הערכה גסה — אין בה עונתיות.`)}
+              `הממוצע של ${view.fullMonths} החודשים המלאים כפול 12. זו הערכה גסה — `
+              + `אין בה עונתיות${view.partialMonth
+                ? `, ו${Fmt.month(view.partialMonth)} לא נספר בה כי הדוח תפס אותו באמצעו`
+                : ""}.`)}
         ${kpi("תלות בלקוחות הגדולים", `${view.top10Share.toFixed(0)}%`,
               `${Fmt.shortMoney(Metrics.sum(view.top10.map((c) => c.ytd)))} מהמחזור`, "users",
               "איזה חלק מהמחזור מגיע מעשרת הלקוחות הגדולים. ככל שהאחוז גבוה יותר, "
@@ -240,6 +272,11 @@ window.ViewDashboard = (function () {
       asTable.add(e.currentTarget.dataset.viewTable);
       render(root, ctx);
     });
+    UI.on(root, "[data-set-year]", "click", (e) => {
+      App.ctx.year = Number(e.currentTarget.dataset.setYear);
+      App.render();
+    });
+
     UI.on(root, "[data-customer], .bar-row[data-no]", "click", (e) => {
       const node = e.currentTarget;
       const no = node.dataset.customer || node.dataset.no;
