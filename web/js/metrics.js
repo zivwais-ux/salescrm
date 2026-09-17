@@ -112,6 +112,12 @@ window.Metrics = (function () {
   function overview({ year, agent }) {
     const priorYear = year - 1;
     const lastMonth = Store.closedMonth(year);
+    // כל השוואה נמדדת על חודשים מלאים בלבד. חודש שהדוח תפס באמצעו מוריד את
+    // הצד האחד של ההשוואה ולא את השני, וההפרש שנוצר אינו עסקי אלא תאריכי:
+    // ינואר–ספטמבר 2026 מול 2025 נראה כירידה של 6.5%, בעוד ינואר–אוגוסט —
+    // אותם חודשים מלאים בשתי השנים — מראים 0.1%.
+    const partial = partialMonth({ year, agent });
+    const cmpMonths = partial ? lastMonth - 1 : lastMonth;
     const current = byCustomer({ year, agent });
     const prior = byCustomer({ year: priorYear, agent });
 
@@ -122,8 +128,9 @@ window.Metrics = (function () {
       const prev = prior.get(no);
       const curMonths = cur ? cur.months : Array(12).fill(0);
       const prevMonths = prev ? prev.months : Array(12).fill(0);
-      const ytd = upto(curMonths, lastMonth);
-      const priorYtd = upto(prevMonths, lastMonth);
+      const ytd = upto(curMonths, cmpMonths);
+      const priorYtd = upto(prevMonths, cmpMonths);
+      const sold = upto(curMonths, lastMonth);
       const activeMonths = curMonths.filter((v) => v > 0).length;
       const lastActive = curMonths.reduce((acc, v, i) => (v > 0 ? i + 1 : acc), 0);
       const book = catalog();
@@ -136,6 +143,8 @@ window.Metrics = (function () {
         profile: (Store.party(no) || {}).profile || {},
         months: curMonths,
         priorMonths: prevMonths,
+        // מה שנמכר בפועל עד היום, כולל חודש חלקי — להצגה, לא להשוואה.
+        sold,
         total: cur ? cur.total : 0,
         priorTotal: prev ? prev.total : 0,
         ytd,
@@ -185,12 +194,9 @@ window.Metrics = (function () {
 
     const monthsCur = monthly({ year, agent });
     const monthsPrior = monthly({ year: priorYear, agent });
-    // ממוצע ותחזית נבנים רק על חודשים מלאים; חודש שהדוח תפס באמצעו נספר
-    // בסכום אבל לא בקצב.
-    const partial = partialMonth({ year, agent });
-    const fullMonths = partial ? lastMonth - 1 : lastMonth;
-    const fullTotal = sum(monthsCur.slice(0, fullMonths));
-    const runRate = fullMonths ? (fullTotal / fullMonths) * 12 : 0;
+    // ממוצע ותחזית נבנים על אותם חודשים מלאים.
+    const fullTotal = sum(monthsCur.slice(0, cmpMonths));
+    const runRate = cmpMonths ? (fullTotal / cmpMonths) * 12 : 0;
     const targetTotal = sum(customers.map((c) => c.target));
 
     return {
@@ -201,9 +207,12 @@ window.Metrics = (function () {
       delta: totalYtd - totalPrior,
       priorFullYear: sum(monthsPrior),
       monthsCur, monthsPrior,
-      avgMonth: fullMonths ? fullTotal / fullMonths : 0,
+      avgMonth: cmpMonths ? fullTotal / cmpMonths : 0,
       partialMonth: partial,
-      fullMonths,
+      cmpMonths,
+      // התקופה שההשוואה מדברת עליה, לשימוש בכותרות.
+      cmpLabel: `ינואר–${Fmt.month(cmpMonths)}`,
+      totalSold: sum(monthsCur.slice(0, lastMonth)),
       runRate,
       targetTotal,
       targetPct: targetTotal ? (totalYtd / targetTotal) * 100 : null,

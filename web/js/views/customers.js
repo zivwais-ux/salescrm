@@ -91,8 +91,8 @@ window.ViewCustomers = (function () {
           <thead>
             <tr>
               ${th("לקוח", "name")}
-              ${th(`${view.year} עד כה`, "ytd", "num")}
-              ${th(`${view.priorYear} מקביל`, "priorYtd", "num")}
+              ${th(`${view.cmpLabel} ${view.year}`, "ytd", "num")}
+              ${th(`${view.cmpLabel} ${view.priorYear}`, "priorYtd", "num")}
               ${th("שינוי", "changePct", "num")}
               <th class="num">חודשי ${view.year}</th>
               <th class="num">${paths.years.length} שנים</th>
@@ -117,9 +117,9 @@ window.ViewCustomers = (function () {
                     </div>
                   </div>
                 </td>
-                <td class="num" data-label="${view.year} עד כה"
+                <td class="num" data-label="${view.cmpLabel} ${view.year}"
                     style="font-weight:600">${Fmt.money(c.ytd)}</td>
-                <td class="num" data-label="${view.priorYear} מקביל"
+                <td class="num" data-label="${view.cmpLabel} ${view.priorYear}"
                     style="color:var(--muted)">${Fmt.money(c.priorYtd)}</td>
                 <td class="num" data-label="שינוי">${UI.delta(c.changePct)}</td>
                 <td class="num hide-mobile">${Charts.sparkline(c.months)}</td>

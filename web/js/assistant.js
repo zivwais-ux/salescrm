@@ -239,8 +239,9 @@ window.Assistant = (function () {
         }
         return {
           title: `${party.name} · ${year}`,
-          body: line(`מתחילת השנה (עד ${Fmt.month(view.lastMonth)})`, Fmt.money(row.ytd))
-            + line("תקופה מקבילה אשתקד", Fmt.money(row.priorYtd))
+          body: line(`מתחילת השנה (עד ${Fmt.month(view.lastMonth)})`, Fmt.money(row.sold))
+            + line(view.cmpLabel, Fmt.money(row.ytd))
+            + line(`${view.cmpLabel} ב-${year - 1}`, Fmt.money(row.priorYtd))
             + line("שינוי", row.changePct === null ? "לקוח חדש" : Fmt.percent(row.changePct, 1))
             + line(`חודשים פעילים מתוך ${view.lastMonth}`, String(row.activeMonths))
             + line("מכירה אחרונה", row.lastActive ? Fmt.month(row.lastActive) : "—")
@@ -343,11 +344,15 @@ window.Assistant = (function () {
         const view = Metrics.overview({ ...ctx, year });
         return {
           title: `מכירות ${year}`,
-          body: line(`מתחילת השנה (עד ${Fmt.month(view.lastMonth)})`, Fmt.money(view.totalYtd))
-            + line(`תקופה מקבילה ב-${year - 1}`, Fmt.money(view.totalPrior))
+          body: line(`מתחילת השנה (עד ${Fmt.month(view.lastMonth)})`, Fmt.money(view.totalSold))
+            + line(`${view.cmpLabel}`, Fmt.money(view.totalYtd))
+            + line(`${view.cmpLabel} ב-${year - 1}`, Fmt.money(view.totalPrior))
             + line("שינוי", Fmt.percent(view.changePct, 1))
             + line("לקוחות פעילים", Fmt.number(view.active.length))
-            + line("ממוצע לחודש", Fmt.money(view.avgMonth)),
+            + line("ממוצע לחודש", Fmt.money(view.avgMonth))
+            + (view.partialMonth ? `<p class="ans-note">${Fmt.month(view.partialMonth)}
+                ${year} עדיין חלקי בדוח, ולכן ההשוואה היא על ${view.cmpMonths}
+                החודשים המלאים בשתי השנים.</p>` : ""),
         };
       },
     },

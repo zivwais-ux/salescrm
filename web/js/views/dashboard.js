@@ -78,6 +78,7 @@ window.ViewDashboard = (function () {
   function render(root, ctx) {
     const view = Metrics.overview(ctx);
     const period = `ינואר–${Fmt.month(view.lastMonth)}`;
+    const cmp = view.cmpLabel;
     const partial = view.partialMonth
       ? `<span class="badge warn" title="הדוח הופק במהלך החודש, ולכן הוא סופר בו רק חלק מהמשלוחים. הסכום נכון, אבל הוא לא חודש שלם.">${
           UI.icon("alert", 12)} ${Fmt.month(view.partialMonth)} עדיין חלקי</span>`
@@ -94,10 +95,11 @@ window.ViewDashboard = (function () {
       <section class="hero sec-hero">
         <div class="hero-main">
           <div class="hero-label">מכירות ${view.year} · ${period}</div>
-          <div class="hero-value">${Fmt.money(view.totalYtd)}</div>
+          <div class="hero-value">${Fmt.money(view.totalSold)}</div>
           <div class="hero-meta">
             ${UI.delta(view.changePct)}
-            <span class="hint">מול ${Fmt.money(view.totalPrior)} בתקופה המקבילה ב-${prior}</span>
+            <span class="hint">${cmp}: ${Fmt.money(view.totalYtd)} מול ${
+              Fmt.money(view.totalPrior)} ב-${prior}</span>
           </div>
           <div class="hero-meta">
             <span class="badge">${Fmt.number(view.active.length)} לקוחות פעילים</span>
@@ -111,11 +113,15 @@ window.ViewDashboard = (function () {
 
       <div class="grid cols-4 sec-kpi">
         ${kpi("הפרש מול אשתקד", Fmt.signed(view.delta),
-              `על פני ${view.lastMonth} חודשים`, "trendUp",
-              `כמה שקלים מכרנו השנה יותר או פחות מאותם ${view.lastMonth} חודשים ב-${prior}.`)}
+              `${cmp} מול ${prior}`, "trendUp",
+              `כמה שקלים מכרנו יותר או פחות מאותם ${view.cmpMonths} חודשים ב-${prior}.`
+              + (view.partialMonth
+                ? ` ${Fmt.month(view.partialMonth)} אינו נכלל: הדוח תפס אותו באמצעו,`
+                  + " וחודש חצי מול חודש שלם אינו הפרש עסקי אלא תאריכי."
+                : ""))}
         ${kpi("תחזית לסוף השנה", Fmt.money(view.runRate),
               `סגירת ${prior}: ${Fmt.shortMoney(view.priorFullYear)}`, "target",
-              `הממוצע של ${view.fullMonths} החודשים המלאים כפול 12. זו הערכה גסה — `
+              `הממוצע של ${view.cmpMonths} החודשים המלאים כפול 12. זו הערכה גסה — `
               + `אין בה עונתיות${view.partialMonth
                 ? `, ו${Fmt.month(view.partialMonth)} לא נספר בה כי הדוח תפס אותו באמצעו`
                 : ""}.`)}
@@ -139,8 +145,8 @@ window.ViewDashboard = (function () {
       </div>
 
       <div class="grid cols-2 sec-charts">
-        ${chartCard("chart-top", "10 הלקוחות הגדולים", `${period} ${view.year}`)}
-        ${chartCard("chart-agents", "פילוח לפי סוכן", `${period} ${view.year}`)}
+        ${chartCard("chart-top", "10 הלקוחות הגדולים", `${cmp} ${view.year}`)}
+        ${chartCard("chart-agents", "פילוח לפי סוכן", `${cmp} ${view.year}`)}
       </div>
 
       <div class="grid cols-2 sec-actions">

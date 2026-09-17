@@ -356,10 +356,10 @@ window.App = (function () {
         ${notice}
         <div class="grid cols-4">
           <section class="card kpi">
-            <div class="kpi-label">${ctx.year} · עד ${Fmt.month(view.lastMonth)}</div>
+            <div class="kpi-label">${ctx.year} · ${view.cmpLabel}</div>
             <div class="kpi-value">${Fmt.money(row.ytd)}</div>
             <div class="kpi-foot">${UI.delta(row.changePct)}
-              <span>מול ${Fmt.money(row.priorYtd)}</span></div>
+              <span>מול ${Fmt.money(row.priorYtd)} ב-${view.priorYear}</span></div>
           </section>
           <section class="card kpi">
             <div class="kpi-label">חודשים פעילים</div>
