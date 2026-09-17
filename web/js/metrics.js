@@ -358,7 +358,10 @@ window.Metrics = (function () {
     if (years.length < 2) return { from: null, to: null, rising: [], falling: [] };
     const to = years[years.length - 1];
     const from = years[0];
-    const months = Math.min(Store.closedMonth(to), Store.closedMonth(from));
+    // אותם חודשים בדיוק בשתי השנים, ובלי חודש שהדוח תפס באמצעו.
+    const partial = partialMonth({ year: to, agent });
+    const months = Math.min(Store.closedMonth(to) - (partial ? 1 : 0),
+                            Store.closedMonth(from));
     const book = catalog();
     const at = (year) => {
       const map = new Map();
