@@ -70,6 +70,10 @@ window.ViewTrend = (function () {
     const period = (point) => (point && point.month
       ? `${Fmt.monthShort(point.month)} ${point.year}` : "");
 
+    // מיליונים נכתבים כ-1.42; תיק קטן, שכל חודש בו הוא אלפים בודדים, היה
+    // מתגלגל ל-0.00 בכל תא ואומר כלום.
+    const inMillions = season.max >= 1e6;
+
     root.innerHTML = `
       <section class="hero sec-hero">
         <div class="hero-main">
@@ -104,7 +108,8 @@ window.ViewTrend = (function () {
           partial ? ` · עד ${Fmt.month(partial - 1)}, החודש המלא האחרון` : ""}`)}
 
       <div class="grid cols-2" style="align-items:start">
-        ${chartCard("trend-season", "עונתיות", "כל תא הוא חודש, במיליוני ₪")}
+        ${chartCard("trend-season", "עונתיות", `כל תא הוא חודש${
+          inMillions ? ", במיליוני ₪" : ""}`)}
         ${UI.card("תמהיל הסוכנים", {
           sub: "אותו גוון לאותו סוכן בכל השנים",
           body: `<div id="trend-mix" class="mix-years"></div>`,
@@ -154,7 +159,8 @@ window.ViewTrend = (function () {
       "trend-season": (host) => Charts.heatmap(host, season.rows.map((r) => ({
         label: String(r.year),
         values: r.months.map((v, i) => (i < r.closed ? v : null)),
-      })), Fmt.SHORT, { max: season.max, format: (v) => (v / 1e6).toFixed(2) }),
+      })), Fmt.SHORT, { max: season.max,
+        format: inMillions ? (v) => (v / 1e6).toFixed(2) : Fmt.short }),
     };
 
     const tables = {

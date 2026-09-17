@@ -121,7 +121,8 @@ window.ViewCustomers = (function () {
                     style="font-weight:600">${Fmt.money(c.ytd)}</td>
                 <td class="num" data-label="${view.cmpLabel} ${view.priorYear}"
                     style="color:var(--muted)">${Fmt.money(c.priorYtd)}</td>
-                <td class="num" data-label="שינוי">${UI.delta(c.changePct)}</td>
+                <td class="num" data-label="שינוי">${view.hasPrior
+                  ? UI.delta(c.changePct) : '<span class="hint">—</span>'}</td>
                 <td class="num hide-mobile">${Charts.sparkline(c.months)}</td>
                 <td class="num hide-mobile">${Charts.sparkline(
                   paths.map.get(c.no) || [], { flat: true, width: 64 })}</td>

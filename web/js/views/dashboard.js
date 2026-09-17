@@ -97,9 +97,11 @@ window.ViewDashboard = (function () {
           <div class="hero-label">מכירות ${view.year} · ${period}</div>
           <div class="hero-value">${Fmt.money(view.totalSold)}</div>
           <div class="hero-meta">
-            ${UI.delta(view.changePct)}
-            <span class="hint">${cmp}: ${Fmt.money(view.totalYtd)} מול ${
-              Fmt.money(view.totalPrior)} ב-${prior}</span>
+            ${view.hasPrior ? `${UI.delta(view.changePct)}
+              <span class="hint">${cmp}: ${Fmt.money(view.totalYtd)} מול ${
+                Fmt.money(view.totalPrior)} ב-${prior}</span>`
+              : `<span class="hint">${prior} אינה במאגר, ולכן אין מול מה להשוות
+                 את ${view.year}</span>`}
           </div>
           <div class="hero-meta">
             <span class="badge">${Fmt.number(view.active.length)} לקוחות פעילים</span>
@@ -112,7 +114,11 @@ window.ViewDashboard = (function () {
       </section>
 
       <div class="grid cols-4 sec-kpi">
-        ${kpi("הפרש מול אשתקד", Fmt.signed(view.delta),
+        ${!view.hasPrior
+          ? kpi("החודש החזק", Fmt.month(view.bestMonth + 1),
+                Fmt.money(view.monthsCur[view.bestMonth]), "trendUp",
+                `אין נתוני ${prior} במאגר, ולכן אין השוואה לשנה קודמת.`)
+          : kpi("הפרש מול אשתקד", Fmt.signed(view.delta),
               `${cmp} מול ${prior}`, "trendUp",
               `כמה שקלים מכרנו יותר או פחות מאותם ${view.cmpMonths} חודשים ב-${prior}.`
               + (view.partialMonth
@@ -120,7 +126,8 @@ window.ViewDashboard = (function () {
                   + " וחודש חצי מול חודש שלם אינו הפרש עסקי אלא תאריכי."
                 : ""))}
         ${kpi("תחזית לסוף השנה", Fmt.money(view.runRate),
-              `סגירת ${prior}: ${Fmt.shortMoney(view.priorFullYear)}`, "target",
+              view.hasPrior ? `סגירת ${prior}: ${Fmt.shortMoney(view.priorFullYear)}`
+                : `על פי ${view.cmpMonths} חודשים`, "target",
               `הממוצע של ${view.cmpMonths} החודשים המלאים כפול 12. זו הערכה גסה — `
               + `אין בה עונתיות${view.partialMonth
                 ? `, ו${Fmt.month(view.partialMonth)} לא נספר בה כי הדוח תפס אותו באמצעו`
@@ -133,15 +140,25 @@ window.ViewDashboard = (function () {
           ? kpi("עמידה ביעד", `${(view.targetPct || 0).toFixed(0)}%`,
                 `פער ${Fmt.signed(view.totalYtd - view.targetTotal)}`, "target",
                 "המכירות עד כה מול סכום היעדים שהוגדרו בכרטיסי הלקוחות.")
+          : !view.hasPrior
+          ? kpi("לקוחות פעילים", Fmt.number(view.active.length),
+                `מתוך ${Fmt.number(view.customers.length)} בתיק`, "users",
+                `כמה לקוחות קנו ב-${view.year}.`)
           : kpi("לקוחות חדשים השנה", Fmt.number(view.newCustomers.length),
                 `${Fmt.shortMoney(Metrics.sum(view.newCustomers.map((c) => c.ytd)))} מחזור חדש`,
                 "spark", `לקוחות שקנו ב-${view.year} ולא קנו בכלל ב-${prior}.`)}
       </div>
 
       <div class="grid cols-2 sec-charts">
-        ${chartCard("chart-months", "מכירות לפי חודש", `${view.year} מול ${prior}`)}
-        ${chartCard("chart-movers", "מי הזיז את המחזור",
-                    `השינוי הגדול ביותר מול ${prior}, בשקלים`)}
+        ${chartCard("chart-months", "מכירות לפי חודש",
+          view.hasPrior ? `${view.year} מול ${prior}` : `${view.year}`)}
+        ${view.hasPrior ? chartCard("chart-movers", "מי הזיז את המחזור",
+                    `השינוי הגדול ביותר מול ${prior}, בשקלים`)
+          : UI.card("מי הזיז את המחזור", {
+              sub: `דורש שנה קודמת להשוואה`,
+              body: UI.empty(`אין נתוני ${prior} במאגר`,
+                `${view.year} היא השנה הראשונה שיש, ולכן אין מול מה להשוות.`, "chart"),
+            })}
       </div>
 
       <div class="grid cols-2 sec-charts">
@@ -163,7 +180,11 @@ window.ViewDashboard = (function () {
                   : `${Fmt.money(c.ytd)} מול ${Fmt.money(c.priorYtd)} · ${
                       Fmt.percent(c.changePct, 0)}`),
               })
-            : UI.empty("אין לקוחות בירידה מהותית", "כל התיק יציב מול אשתקד.", "check"),
+            : UI.empty(view.hasPrior ? "אין לקוחות בירידה מהותית"
+                : `אין ${prior} במאגר`,
+                view.hasPrior ? "כל התיק יציב מול אשתקד."
+                : "הרשימה הזו משווה מול השנה הקודמת, והיא השנה הראשונה שיש.",
+                "check"),
         })}
 
         ${UI.card("שקט על הקו", {
@@ -211,15 +232,16 @@ window.ViewDashboard = (function () {
     Charts.cumulative(root.querySelector("#chart-cumulative"), [
       { label: `${view.year}`, values: view.monthsCur.slice(0, view.lastMonth),
         color: Charts.color("--accent"), fill: true },
-      { label: prior, values: view.monthsPrior, color: Charts.color("--chart-prior"),
-        dashed: true },
+      ...(view.hasPrior ? [{ label: prior, values: view.monthsPrior,
+        color: Charts.color("--chart-prior"), dashed: true }] : []),
     ], Fmt.SHORT, { height: 150, side: 40 });
 
     const panes = {
       "chart-months": {
         chart: (host) => Charts.bars(host, [
           { label: `${view.year}`, values: view.monthsCur, color: Charts.color("--accent") },
-          { label: prior, values: view.monthsPrior, color: Charts.color("--chart-prior") },
+          ...(view.hasPrior ? [{ label: prior, values: view.monthsPrior,
+                                 color: Charts.color("--chart-prior") }] : []),
         ], Fmt.SHORT, { height: 250 }),
         table: () => Charts.table(["חודש", `${view.year}`, prior, "שינוי"],
           Fmt.MONTHS.map((m, i) => {
@@ -241,7 +263,8 @@ window.ViewDashboard = (function () {
       "chart-top": {
         chart: (host) => Charts.ranking(host, view.top10.map((c) => ({
           no: c.no, label: c.name, value: c.ytd,
-          display: `${Fmt.money(c.ytd)} &nbsp;${UI.delta(c.changePct)}`,
+          display: `${Fmt.money(c.ytd)}${
+            view.hasPrior ? ` &nbsp;${UI.delta(c.changePct)}` : ""}`,
         }))),
         table: () => Charts.table(["#", "לקוח", `${view.year}`, "נתח מהמחזור"],
           view.top10.map((c, i) => [String(i + 1), Fmt.escape(c.name), Fmt.money(c.ytd),

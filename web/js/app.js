@@ -358,8 +358,10 @@ window.App = (function () {
           <section class="card kpi">
             <div class="kpi-label">${ctx.year} · ${view.cmpLabel}</div>
             <div class="kpi-value">${Fmt.money(row.ytd)}</div>
-            <div class="kpi-foot">${UI.delta(row.changePct)}
-              <span>מול ${Fmt.money(row.priorYtd)} ב-${view.priorYear}</span></div>
+            <div class="kpi-foot">${view.hasPrior
+              ? `${UI.delta(row.changePct)}
+                 <span>מול ${Fmt.money(row.priorYtd)} ב-${view.priorYear}</span>`
+              : `<span>אין ${view.priorYear} במאגר להשוואה</span>`}</div>
           </section>
           <section class="card kpi">
             <div class="kpi-label">חודשים פעילים</div>
@@ -513,8 +515,8 @@ window.App = (function () {
         if (chart) {
           Charts.bars(chart, [
             { label: `${ctx.year}`, values: row.months, color: Charts.color("--accent") },
-            { label: `${view.priorYear}`, values: row.priorMonths,
-              color: Charts.color("--chart-prior") },
+            ...(view.hasPrior ? [{ label: `${view.priorYear}`, values: row.priorMonths,
+              color: Charts.color("--chart-prior") }] : []),
           ], Fmt.SHORT, { height: 210, side: 42 });
         }
 

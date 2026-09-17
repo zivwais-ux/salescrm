@@ -118,6 +118,9 @@ window.Metrics = (function () {
     // אותם חודשים מלאים בשתי השנים — מראים 0.1%.
     const partial = partialMonth({ year, agent });
     const cmpMonths = partial ? lastMonth - 1 : lastMonth;
+    // לשנה הראשונה במאגר אין מול מה להשוות. אפס אינו "לא קנו אשתקד" אלא
+    // "איננו יודעים", ולכן כל לקוח היה נצבע כחדש והמחזור כולו כצמיחה.
+    const hasPrior = Store.years().includes(priorYear);
     const current = byCustomer({ year, agent });
     const prior = byCustomer({ year: priorYear, agent });
 
@@ -130,6 +133,7 @@ window.Metrics = (function () {
       const prevMonths = prev ? prev.months : Array(12).fill(0);
       const ytd = upto(curMonths, cmpMonths);
       const priorYtd = upto(prevMonths, cmpMonths);
+      const changePct = hasPrior ? change(ytd, priorYtd) : null;
       const sold = upto(curMonths, lastMonth);
       const activeMonths = curMonths.filter((v) => v > 0).length;
       const lastActive = curMonths.reduce((acc, v, i) => (v > 0 ? i + 1 : acc), 0);
@@ -149,15 +153,15 @@ window.Metrics = (function () {
         priorTotal: prev ? prev.total : 0,
         ytd,
         priorYtd,
-        delta: ytd - priorYtd,
-        changePct: change(ytd, priorYtd),
+        delta: hasPrior ? ytd - priorYtd : 0,
+        changePct,
         activeMonths,
         lastActive,
         monthsSinceSale: lastActive ? lastMonth - lastActive : null,
         payers: cur ? [...cur.payers.entries()].sort((a, b) => b[1] - a[1]) : [],
         target: Store.target(no, year),
-        isNew: !priorYtd && ytd > 0,
-        isLost: priorYtd > 0 && ytd === 0,
+        isNew: hasPrior && !priorYtd && ytd > 0,
+        isLost: hasPrior && priorYtd > 0 && ytd === 0,
       });
     });
     customers.sort((a, b) => b.ytd - a.ytd);
@@ -173,7 +177,7 @@ window.Metrics = (function () {
     // לקוחות בסיכון: קנו בשנה שעברה, וירדו מהותית או נעלמו השנה.
     // הסף של 5,000 ₪ מסנן לקוחות מזדמנים שירידה אצלם אינה אומרת דבר.
     customers.forEach((c) => {
-      c.atRisk = !c.isBucket && c.priorYtd >= 5000
+      c.atRisk = hasPrior && !c.isBucket && c.priorYtd >= 5000
         && (c.ytd === 0 || (c.changePct !== null && c.changePct <= -35));
       // שקט על הקו: פעיל השנה, אך לא קנה בחודשיים האחרונים שנסגרו.
       c.isQuiet = !c.isBucket && c.ytd > 0
@@ -183,11 +187,11 @@ window.Metrics = (function () {
     const atRisk = customers.filter((c) => c.atRisk).sort((a, b) => a.delta - b.delta);
 
     const growing = real
-      .filter((c) => c.delta > 0 && c.priorYtd > 0)
+      .filter((c) => hasPrior && c.delta > 0 && c.priorYtd > 0)
       .sort((a, b) => b.delta - a.delta);
 
     const shrinking = real
-      .filter((c) => c.delta < 0 && c.priorYtd > 0)
+      .filter((c) => hasPrior && c.delta < 0 && c.priorYtd > 0)
       .sort((a, b) => a.delta - b.delta);
 
     const quiet = customers.filter((c) => c.isQuiet).sort((a, b) => b.ytd - a.ytd);
@@ -200,11 +204,11 @@ window.Metrics = (function () {
     const targetTotal = sum(customers.map((c) => c.target));
 
     return {
-      year, priorYear, lastMonth,
+      year, priorYear, lastMonth, hasPrior,
       customers, active,
       totalYtd, totalPrior,
-      changePct: change(totalYtd, totalPrior),
-      delta: totalYtd - totalPrior,
+      changePct: hasPrior ? change(totalYtd, totalPrior) : null,
+      delta: hasPrior ? totalYtd - totalPrior : null,
       priorFullYear: sum(monthsPrior),
       monthsCur, monthsPrior,
       avgMonth: cmpMonths ? fullTotal / cmpMonths : 0,
