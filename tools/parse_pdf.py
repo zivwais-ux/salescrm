@@ -19,6 +19,8 @@ import sys
 import pymupdf
 
 NUM_RE = re.compile(r"^-?[\d,]+\.\d{2}$")
+# A customer number may carry a sub-account suffix, e.g. "202270313-1".
+ID_RE = re.compile(r"^\d[\d-]*$")
 # Lines that belong to the report furniture rather than to a data row.
 NOISE_TOKENS = {"מחיר", "כולל", "מטבע", "סה", "כללי", "GADOT"}
 WORD_GAP = 0.8      # points; gaps inside a word measure ~0, between words >= 1.3
@@ -54,12 +56,33 @@ def layout(page):
     months[0] = value_cells[-1]
 
     currency = next(w for w in head if w[4] == "מטבע")
-    right = cluster([(w[0], w[2]) for w in head if w[0] > currency[2] - 1], gap=4.0)
-    right.sort(key=lambda c: -c[0])
-    text = dict(zip(FIELDS, right))
+    text = dict(zip(FIELDS, header_columns([w for w in head if w[0] > currency[2] - 1])))
     text["currency"] = [currency[0], currency[2]]
 
     return months, text
+
+
+def header_columns(head):
+    """The six text columns, from the header labels rather than from gaps alone.
+
+    Read right to left the labels are "מס' סוכן", "שם סוכן", "מס. לקוח",
+    "שם לקוח", "לקוח משלם", "שם לקוח משלם", so every column but the payer number
+    opens with מס or שם. Clustering on whitespace alone is not enough: in some
+    years the agent columns sit 3pt apart and merge, while the payer number
+    opens with a word that also appears mid-label. Splitting on those two
+    markers first, then on whitespace inside each group, separates both.
+    """
+    groups, cols = [], []
+    for word in sorted(head, key=lambda w: -w[0]):
+        if word[4] in ("מס", "שם") or not groups:
+            groups.append([])
+        groups[-1].append(word)
+    for group in groups:
+        cols += cluster([(w[0], w[2]) for w in group], gap=4.0)
+    cols.sort(key=lambda c: -c[0])
+    if len(cols) != len(FIELDS):
+        raise SystemExit(f"header has {len(cols)} text columns, expected {len(FIELDS)}")
+    return cols
 
 
 def snap_to_data(columns, doc, head_y):
@@ -148,8 +171,10 @@ def clean_name(text):
     standalone letter at one end of the name.
     """
     text = text.strip()
-    text = re.sub(r"[\s-]*\(?\s*ב\s*\)?\s*$", "", text)
-    text = re.sub(r"^\s*\(?\s*ב\s*[-)\s]\s*", "", text)
+    # The marker stands on its own, so it is only stripped when a space, a hyphen
+    # or a bracket separates it: names like "תמי יהב" end in the same letter.
+    text = re.sub(r"(?:(?<=\s)|(?<=-)|^)\(?\s*ב\s*\)?\s*$", "", text)
+    text = re.sub(r"^\s*(?:\(\s*ב\s*\)|ב\s*-)\s*", "", text)
     text = re.sub(r"\s*\(\s*\)\s*", " ", text)
     # On a latin name the marker ends up mid-string, since that line reads
     # left-to-right while the marker was printed at its right edge.
@@ -201,11 +226,14 @@ def parse_page(page, months, text_cols, head_y):
         for field in FIELDS:
             if field.endswith("_no"):
                 row[field] = "".join(w[4] for w in band
-                                     if in_col(w, text_cols[field]) and w[4].isdigit())
+                                     if in_col(w, text_cols[field]) and ID_RE.match(w[4]))
             else:
                 cell = [c for c in band_chars
                         if text_cols[field][0] <= (c[1] + c[2]) / 2 <= text_cols[field][1]]
                 row[field] = clean_name(rtl_text(cell))
+        cell = [c for c in band_chars
+                if text_cols["currency"][0] - 1 <= (c[1] + c[2]) / 2 <= text_cols["currency"][1] + 1]
+        row["currency"] = rtl_text(cell).replace(" ", "") or "ש'ח"
         row["reported_total"] = amounts.pop(0, None)
         row["months"] = {str(k): v for k, v in sorted(amounts.items())}
         rows.append(row)
@@ -245,7 +273,11 @@ def parse(path, year):
     rows = [r for page in doc for r in parse_page(page, months, text_cols, layout.head_y)]
     parse.control = control_totals(doc, months, layout.head_y)
 
-    carry = {"agent_no": "", "agent_name": "", "customer_no": "", "customer_name": ""}
+    # Every one of these is printed once per group and left blank on the rows that
+    # continue it: the agent and the ship-to customer across their whole block, and
+    # the payer on a second line that bills the same pair in another currency.
+    carry = {"agent_no": "", "agent_name": "", "customer_no": "", "customer_name": "",
+             "payer_no": "", "payer_name": ""}
     for row in rows:
         for field in carry:
             if row[field]:
