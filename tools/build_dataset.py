@@ -149,8 +149,11 @@ def main():
     party_list = sorted(parties.items())
     agent_at = {no: i for i, (no, _) in enumerate(agent_list)}
     party_at = {no: i for i, (no, _) in enumerate(party_list)}
-    agent_at[""] = len(agent_list)
-    agent_list.append(("", "ללא שיוך"))
+    # הדוח משאיר מדי פעם שורה בלי מספר סוכן. היא מקבלת מקום ברשימה רק אם יש
+    # לה באמת תנועות — רשומה ריקה היא המצאה, ולא נתון.
+    if any(not s["agent"] for s in sales):
+        agent_at[""] = len(agent_list)
+        agent_list.append(("", "ללא שיוך"))
 
     def encode(s):
         row = [party_at[s["c"]], party_at[s["p"]], agent_at[s["agent"]], s["y"], s["m"], s["a"]]

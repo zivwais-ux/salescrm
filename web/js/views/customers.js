@@ -112,8 +112,9 @@ window.ViewCustomers = (function () {
                         c.isBucket ? ' <span class="badge warn">סל מרוכז</span>' : ""}</div>
                       <div class="cell-sub">${Fmt.escape(c.no)}${
                         c.payers.length > 1 ? ` · ${c.payers.length} משלמים` : ""}${
-                        c.parent ? " · אתר" : ""}${
-                        c.sites && c.sites.length ? ` · ${c.sites.length + 1} אתרים` : ""}</div>
+                        c.parent ? " · מספר חשבון נוסף בדוח" : ""}${
+                        c.sites && c.sites.length
+                          ? ` · ${c.sites.length + 1} מספרי חשבון` : ""}</div>
                     </div>
                   </div>
                 </td>

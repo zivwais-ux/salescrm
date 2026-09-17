@@ -9,9 +9,11 @@ window.Metrics = (function () {
    *   • "לקוחות שונים" אינו לקוח אלא סל מרוכז של מכירות קטנות. המחזור שלו
    *     אמיתי ונספר, אבל אין למי להתקשר — ולכן הוא מוחרג מדירוגים ומרשימות
    *     הטיפול, שם הוא היה תופס מקום של לקוח אמיתי.
-   *   • מספר לקוח שהוא קידומת מדויקת של מספר אחר הוא חשבון אב, והארוך ממנו
-   *     הוא אתר או חטיבה שלו (קרגל משמר השרון / משמר דוד). הדוח מציג אותם
-   *     כשני לקוחות נפרדים, וזה נכון — אבל הקשר ביניהם שווה הצגה.
+   *   • מספר לקוח שהוא קידומת מדויקת של מספר אחר — הדוח מדפיס את שניהם, וזה
+   *     נכון, אבל הקשר ביניהם שווה הצגה. הקשר הזה הוא שני דברים שונים:
+   *     כששני השמות שונים זה אתר או חטיבה (קרגל משמר השרון / משמר דוד),
+   *     וכשהם אותו שם זה אותה חברה תחת שני מספרי חשבון (ארגם, זנלכל). זו
+   *     הבחנה שהדוח לא עושה, ולכן היא נאמרת כפי שהיא ולא נכפית לכיוון אחד.
    */
   let cached = null;
 
@@ -26,12 +28,18 @@ window.Metrics = (function () {
 
     const parentOf = new Map();
     const sitesOf = new Map();
+    const aliases = new Set();
+    // שם מנוקה מסימני פיסוק ומרווחים, להשוואה בלבד.
+    const plain = (no) => String(Store.partyName(no))
+      .replace(/["'`״׳()\-]/g, "").replace(/\s+/g, "").trim();
     numbers.forEach((a) => {
       numbers.forEach((b) => {
         if (a !== b && b.startsWith(a)) {
           parentOf.set(b, a);
           if (!sitesOf.has(a)) sitesOf.set(a, []);
           sitesOf.get(a).push(b);
+          const [x, y] = [plain(a), plain(b)];
+          if (x && y && (x === y || x.startsWith(y) || y.startsWith(x))) aliases.add(b);
         }
       });
     });
@@ -40,7 +48,7 @@ window.Metrics = (function () {
       .filter((p) => /לקוחות שונים|שונים\s*$/.test(p.name))
       .map((p) => p.no));
 
-    cached = { key, shipTo, payers, parentOf, sitesOf, buckets,
+    cached = { key, shipTo, payers, parentOf, sitesOf, aliases, buckets,
                payerOnly: new Set([...payers].filter((no) => !shipTo.has(no))) };
     return cached;
   }

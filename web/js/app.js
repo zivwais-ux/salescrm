@@ -327,15 +327,25 @@ window.App = (function () {
                     activities.length ? ` · ${activities.length}` : ""}`]];
 
     const book = Metrics.catalog();
+    const link = (target) => `<a href="#" data-customer="${Fmt.escape(target)}">${
+      Fmt.escape(Store.partyName(target))} (${Fmt.escape(target)})</a>`;
     const related = [];
+    // מה שידוע בוודאות הוא שמספר אחד ממשיך את השני. האם מדובר באתר, בחטיבה
+    // או בחשבון המשך של אותה חברה — הדוח אינו אומר, ולכן גם המערכת לא.
     if (row.parent) {
-      related.push(`אתר של <a href="#" data-customer="${Fmt.escape(row.parent)}">${
-        Fmt.escape(Store.partyName(row.parent))}</a>`);
+      related.push(book.aliases.has(no)
+        ? `אותו שם, שני מספרי חשבון בדוח: גם ${link(row.parent)}`
+        : `מספר הלקוח ממשיך את ${link(row.parent)} — בדוח הם שני לקוחות נפרדים`);
     }
     if (row.sites && row.sites.length) {
-      related.push(`חשבון אב של ${row.sites.map((siteNo) => (
-        `<a href="#" data-customer="${Fmt.escape(siteNo)}">${
-          Fmt.escape(Store.partyName(siteNo))}</a>`)).join(" · ")}`);
+      const twins = row.sites.filter((siteNo) => book.aliases.has(siteNo));
+      const rest = row.sites.filter((siteNo) => !book.aliases.has(siteNo));
+      if (twins.length) {
+        related.push(`אותו שם, שני מספרי חשבון בדוח: גם ${twins.map(link).join(" · ")}`);
+      }
+      if (rest.length) {
+        related.push(`מספרים שממשיכים את המספר הזה: ${rest.map(link).join(" · ")}`);
+      }
     }
     if (book.payerOnly.has(no)) {
       related.push("מופיע בדוח כלקוח משלם בלבד, לא כיעד משלוח");
