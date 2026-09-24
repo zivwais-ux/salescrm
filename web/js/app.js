@@ -6,7 +6,7 @@ window.App = (function () {
   const cfg = window.APP_CONFIG;
   const ctx = { year: null, agent: "all", view: "dashboard" };
 
-  // שישה מסכים, ארבעה מהם בסרגל התחתון בנייד. ה"תפריט" מחזיק את השאר.
+  // שבעה מסכים, ארבעה מהם בסרגל התחתון בנייד. ה"תפריט" מחזיק את השאר.
   // `period` מסמן מסך שקורא את השנה הנבחרת — רק שם מוצג בורר השנה.
   const NAV = [
     { id: "dashboard", label: "בית", icon: "dashboard", view: () => ViewDashboard,
@@ -15,8 +15,10 @@ window.App = (function () {
       title: "מגמה", tab: true, period: true },
     { id: "customers", label: "לקוחות", icon: "customers", view: () => ViewCustomers,
       title: "לקוחות", tab: true, period: true },
+    { id: "entry", label: "הזנה", icon: "plus", view: () => ViewEntry,
+      title: "הזנת מכירות", tab: true },
     { id: "activity", label: "משימות", icon: "activity", view: () => ViewActivity,
-      title: "משימות", tab: true },
+      title: "משימות" },
     { id: "grid", label: "טבלת חודשים", icon: "grid", view: () => ViewGrid,
       title: "טבלת חודשים", period: true },
     { id: "settings", label: "נתונים וקבצים", icon: "settings", view: () => ViewSettings,

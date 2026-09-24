@@ -58,6 +58,34 @@ window.Fmt = (function () {
       return isFinite(value) ? value : 0;
     },
 
+    /**
+     * סכום שאפשר להקליד כחשבון: "1200+840", "3*1250", "9600-120".
+     *
+     * כך נראית הזנה אמיתית של חודש — כמה חשבוניות לאותו לקוח, או כמות כפול
+     * מחיר — ובלי זה צריך מחשבון בצד. החישוב נעשה על מספרים שחולצו מהטקסט
+     * בלבד, בלי להריץ את מה שהוקלד כקוד.
+     */
+    parseAmount(raw) {
+      if (typeof raw === "number") return raw;
+      const text = String(raw ?? "").replace(/[,\s₪]/g, "");
+      if (!text) return 0;
+      if (!/[+\-*/]/.test(text.slice(1))) return this.parseNumber(text);
+      const tokens = text.match(/\d*\.?\d+|[+\-*/]/g);
+      if (!tokens || !/^\d*\.?\d+$/.test(tokens[0])) return this.parseNumber(text);
+      // כפל וחילוק נפתרים תחילה, ואחר כך חיבור וחיסור משמאל לימין.
+      const flat = [Number(tokens[0])];
+      for (let i = 1; i < tokens.length; i += 2) {
+        const op = tokens[i];
+        const value = Number(tokens[i + 1]);
+        if (!isFinite(value)) return this.parseNumber(text);
+        if (op === "*") flat[flat.length - 1] *= value;
+        else if (op === "/") flat[flat.length - 1] = value ? flat[flat.length - 1] / value : 0;
+        else flat.push(op === "-" ? -value : value);
+      }
+      const total = flat.reduce((a, b) => a + b, 0);
+      return isFinite(total) ? Math.round(total * 100) / 100 : 0;
+    },
+
     escape(text) {
       return String(text ?? "").replace(/[&<>"']/g, (c) => (
         { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]

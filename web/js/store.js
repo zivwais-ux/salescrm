@@ -216,10 +216,34 @@ window.Store = (function () {
     /** השנים שהדוחות מכסים, גם אם אין להן עדיין תנועות במערכת. */
     seedYears: () => (window.GADOT_DATASET.years || []).slice(),
 
-    /** החודש האחרון שהדוח סגר בשנה — לא בהכרח החודש האחרון שיש בו מכירה. */
+    /**
+     * עד איזה חודש השנה נספרת.
+     *
+     * הדוח קובע את הרצפה, אבל חודש שהוזן ביד מרחיב אותה: מרגע שנרשמה מכירה
+     * באוקטובר, אוקטובר הוא חלק מהתקופה בכל המסכים. בלי זה נתון שהוזן היה
+     * נשמר במערכת ולא נספר בשום סיכום.
+     */
     closedMonth(year) {
-      const closed = (window.GADOT_DATASET.last_closed_month || {})[String(year)];
-      return closed || api.lastMonth(year);
+      const closed = (window.GADOT_DATASET.last_closed_month || {})[String(year)] || 0;
+      const entered = [...state.sales.values()]
+        .filter((s) => s.y === year && s.a).map((s) => s.m);
+      return Math.max(closed, entered.length ? Math.max(...entered) : 0) || 12;
+    },
+
+    /**
+     * המשלם והסוכן שרשומים ללקוח בתנועה האחרונה שלו.
+     *
+     * הזנה חדשה נשענת עליהם כברירת מחדל, אחרת אותו לקוח היה מתפצל לשתי
+     * שורות — אחת של הדוח ואחת של ההזנה — ומפסיק להצטבר לשורה אחת.
+     */
+    lastKnown(customerNo) {
+      let best = null;
+      state.sales.forEach((sale) => {
+        if (sale.c !== customerNo) return;
+        if (!best || sale.y > best.y || (sale.y === best.y && sale.m > best.m)) best = sale;
+      });
+      return { payer: best ? best.p : customerNo,
+               agent: best ? best.agent : defaultAgent() };
     },
 
     /** סיכומי הבקרה כפי שהודפסו בדוח המקורי, לפי שנה. */
@@ -229,7 +253,7 @@ window.Store = (function () {
     setSale(customerNo, payerNo, year, month, amount, agentNo) {
       const agent = agentNo || defaultAgent();
       const key = saleKey(customerNo, payerNo, agent, year, month);
-      const value = Math.round(Fmt.parseNumber(amount) * 100) / 100;
+      const value = Math.round(Fmt.parseAmount(amount) * 100) / 100;
       commit(`עדכון ${Fmt.month(month)} · ${api.partyName(customerNo)}`, () => {
         if (!value) {
           state.sales.delete(key);
@@ -238,6 +262,29 @@ window.Store = (function () {
         // ערך שאדם הקליד הוא ידני מכאן והלאה, מה שמבדיל אותו בייצוא.
         state.sales.set(key, { c: customerNo, p: payerNo, agent, y: year, m: month,
                                a: value, source: "manual" });
+      });
+    },
+
+    /**
+     * הזנה של חודש שלם בפעולה אחת.
+     *
+     * שורה אחת בהיסטוריית הביטול לכל החודש, ולא אחת לכל לקוח: מי שהזין
+     * ארבעים לקוחות ורוצה לחזור בו מתכוון לחודש, לא לשורה הארבעים.
+     */
+    setMonth(year, month, rows, label) {
+      commit(label || `הזנת ${Fmt.month(month)} ${year}`, () => {
+        rows.forEach((row) => {
+          const c = String(row.c).trim();
+          const p = String(row.p || c).trim();
+          const agent = row.agent || defaultAgent();
+          const value = Math.round(Fmt.parseAmount(row.a) * 100) / 100;
+          const key = saleKey(c, p, agent, year, month);
+          if (!value) state.sales.delete(key);
+          else {
+            state.sales.set(key, { c, p, agent, y: year, m: month, a: value,
+                                   source: "manual" });
+          }
+        });
       });
     },
 

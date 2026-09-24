@@ -16,31 +16,38 @@ window.ViewSettings = (function () {
     if (!ui.year || !years.includes(ui.year)) ui.year = ctx.year || years[0];
 
     const state = (year) => {
-      const control = Store.control(year);
-      if (!control) return null;
+      const control = Store.control(year) || { total: 0, months: {} };
       const live = Metrics.monthly({ year, agent: "all" });
       const liveTotal = Metrics.sum(live);
       // עיגול לאגורה לפני ההשוואה: סכום של אלפי מספרים עשרוניים משאיר שארית
       // זעירה בייצוג הבינארי, והיא אינה הפרש אמיתי מול הדוח.
-      return { year, control, live, liveTotal,
-               drift: Math.round((liveTotal - control.total) * 100) / 100 };
+      // חודש שהוזן ידנית ואינו בדוח אינו "הפרש" אלא תוספת, ולכן הוא נספר
+      // בנפרד — אחרת ההצלבה היתה מסמנת את ההזנה כשגיאה.
+      const beyond = Metrics.sum(live.map((value, i) => (
+        control.months[String(i + 1)] === undefined ? value : 0)));
+      return { year, control, live, liveTotal, beyond,
+               hasControl: !!Store.control(year),
+               drift: Math.round((liveTotal - beyond - control.total) * 100) / 100 };
     };
 
     const all = years.map(state).filter(Boolean);
     const current = all.find((row) => row.year === ui.year) || all[0];
     if (!current) return "";
-    const months = Object.keys(current.control.months).map(Number).sort((a, b) => a - b);
+    const months = Array.from({ length: Store.closedMonth(current.year) }, (_, i) => i + 1);
     const off = all.filter((row) => row.drift);
+    const added = all.filter((row) => row.beyond);
 
     return UI.card("הצלבה מול הדוח המקורי", {
       sub: off.length
         ? `${off.length} שנים שונות מהדוח — ${off.map((r) => r.year).join(", ")}`
-        : `כל ${all.length} השנים תואמות לאגורה לשורת "סה״כ כללי" שהדוח מדפיס`,
+        : `${all.filter((r) => r.hasControl).length} השנים שיש להן דוח תואמות לאגורה${
+            added.length ? `, ובנוסף הוזנו ידנית חודשים ב-${
+              added.map((r) => r.year).join(", ")}` : ""}`,
       actions: `<div class="seg">
         ${all.map((row) => `<button data-year-check="${row.year}" class="${
           row.year === ui.year ? "is-active" : ""}">${row.year}
           <span class="chip-count ${row.drift ? "is-late" : ""}">${
-            row.drift ? "≠" : "✓"}</span></button>`).join("")}
+            !row.hasControl ? "ידני" : row.drift ? "≠" : "✓"}</span></button>`).join("")}
       </div>`,
       flush: true,
       body: `<div class="table-wrap" style="max-height:420px">
@@ -53,6 +60,14 @@ window.ViewSettings = (function () {
             ${months.map((m) => {
               const printed = current.control.months[String(m)];
               const actual = current.live[m - 1];
+              if (printed === undefined) {
+                return `<tr>
+                  <td>${Fmt.month(m)}</td>
+                  <td class="num" style="color:var(--muted)">—</td>
+                  <td class="num">${Fmt.moneyExact(actual)}</td>
+                  <td class="num"><span class="badge accent">הוזן ידנית</span></td>
+                </tr>`;
+              }
               const diff = Math.round((actual - printed) * 100) / 100;
               return `<tr>
                 <td>${Fmt.month(m)}</td>
@@ -66,15 +81,21 @@ window.ViewSettings = (function () {
           </tbody>
           <tfoot><tr>
             <td style="font-weight:600">סה״כ ${current.year}</td>
-            <td class="num" style="color:var(--muted)">${
-              Fmt.moneyExact(current.control.total)}</td>
+            <td class="num" style="color:var(--muted)">${current.hasControl
+              ? Fmt.moneyExact(current.control.total) : "אין דוח"}</td>
             <td class="num" style="font-weight:600">${Fmt.moneyExact(current.liveTotal)}</td>
             <td class="num">${current.drift
               ? `<span class="delta down">${Fmt.signed(current.drift)}</span>`
-              : `<span class="badge up">${UI.icon("check", 12)} תואם</span>`}</td>
+              : current.hasControl
+                ? `<span class="badge up">${UI.icon("check", 12)} תואם</span>`
+                : `<span class="badge accent">הוזן ידנית</span>`}</td>
           </tr></tfoot>
         </table>
-      </div>`,
+      </div>
+      ${current.beyond ? `<div class="toolbar" style="border-bottom:0">
+        <span class="hint">${Fmt.money(current.beyond)} מתוך הסכום הוזנו ידנית בחודשים
+          שאינם בדוח, ולכן אינם נספרים כהפרש מולו.</span>
+      </div>` : ""}`,
     });
   }
 

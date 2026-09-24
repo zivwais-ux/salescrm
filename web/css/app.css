@@ -1304,6 +1304,77 @@ kbd {
                      padding-inline: 4px; }
 .grid-card { cursor: pointer; }
 
+/* ----------------------------------------------------------------- הזנה ---
+   שורת הזנה היא שדה אחד ומה שצריך כדי למלא אותו: השם, מה היה בחודש המקביל,
+   ומה רשום עכשיו. הכול בשורה אחת, והשדה תמיד באותו מקום כדי שאפשר יהיה
+   לרוץ על הרשימה במקלדת בלי לחפש אותו. */
+.entry-period { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.month-seg { flex-wrap: wrap; }
+.month-seg button { position: relative; min-width: 46px; }
+.month-dot {
+  position: absolute;
+  top: 4px;
+  inset-inline-end: 5px;
+  width: 5px; height: 5px;
+  border-radius: 99px;
+  background: var(--accent);
+}
+/* טיוטה שלא נשמרה מסומנת בצבע אחר — היא לא נתון עדיין */
+.month-dot.is-draft { background: var(--warn); }
+.seg button.is-active .month-dot { background: var(--accent-text); }
+
+.entry-list { display: grid; grid-template-columns: minmax(0, 1fr); }
+.entry-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.entry-row:last-child { border-bottom: 0; }
+.entry-row:hover { background: var(--surface-2); }
+.entry-row.is-changed { background: var(--accent-soft); }
+.entry-row > .grow { flex: 1; min-width: 0; }
+.entry-name { font-size: 13px; font-weight: 550; }
+.entry-hint { font-size: 11.5px; color: var(--muted); }
+.entry-split { flex: none; display: flex; align-items: center; gap: 8px; }
+
+.entry-field { position: relative; flex: none; display: grid; gap: 2px; }
+.entry-field .input {
+  width: 132px;
+  height: 36px;
+  text-align: start;
+  direction: ltr;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.entry-row.is-changed .entry-field .input { border-color: var(--accent); }
+.entry-was { font-size: 10.5px; color: var(--muted); direction: ltr; text-align: start; }
+
+/* סרגל שמירה שמופיע רק כשיש מה לשמור, ונשאר מול העיניים בזמן הגלילה */
+.save-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding: 11px 16px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity .16s var(--ease), transform .16s var(--ease);
+}
+.save-bar.is-on { opacity: 1; transform: none; pointer-events: auto; }
+.save-facts { flex: 1; min-width: 200px; font-size: 13px; }
+.save-bar .row-actions { flex: none; }
+
 /* ---------------------------------------------------------------- משימות --
    שורת משימה היא יחידת פעולה: סימון ביצוע בצד אחד, מה ואצל מי באמצע,
    ודחייה ומחיקה בקצה. הכול בשורה אחת, ובטלפון בשתיים — בלי תפריט נסתר. */
@@ -1427,6 +1498,7 @@ kbd {
    מתחת ל-1000px המערכת מתנהגת כאפליקציה: ניווט בסרגל תחתון, גיליונות מסך
    מלא, ושטחי נגיעה של 44px ומעלה. */
 .only-mobile { display: none; }
+.only-mobile-flex { display: none; }
 
 @media (max-width: 1000px) {
   :root {
@@ -1438,6 +1510,7 @@ kbd {
   .main { grid-column: 1; }
   .no-mobile { display: none; }
   .only-mobile { display: inline-flex; }
+  .only-mobile-flex { display: flex; }
 
   .topbar {
     padding: 8px 14px;
@@ -1456,6 +1529,14 @@ kbd {
   /* חמש שנים וסוכן בשורה אחת ברוחב טלפון: השנים נמתחות לרוחב הפנוי, כך
      שכולן נראות בלי גלילה אופקית ובלי שהראשונה תיחתך. */
   .fab { display: grid; }
+  .entry-row { padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
+  .entry-field { flex: 1; min-width: 120px; }
+  .entry-field .input { width: 100%; height: 42px; }
+  .month-seg button { min-width: 0; flex: 1; padding: 0 6px; font-size: 12px; }
+  .month-seg { width: 100%; }
+  .entry-period .field { width: 100%; }
+  .save-bar { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); padding: 10px 12px; }
+  .save-facts { min-width: 0; font-size: 12px; }
   .sticky-chips { top: var(--header-h); }
   .task { padding: 12px; gap: 10px; }
   .task-check { width: 30px; height: 30px; }

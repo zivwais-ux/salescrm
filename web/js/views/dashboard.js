@@ -107,6 +107,8 @@ window.ViewDashboard = (function () {
             <span class="badge">${Fmt.number(view.active.length)} לקוחות פעילים</span>
             <span class="badge">ממוצע ${Fmt.shortMoney(view.avgMonth)} לחודש</span>
             ${partial}
+            <button class="btn btn-sm" data-goto="entry">${
+              UI.icon("plus", 14)} הזנת חודש</button>
           </div>
           ${yearsStrip(ctx)}
         </div>
