@@ -132,6 +132,155 @@ window.ViewSettings = (function () {
     });
   }
 
+  /**
+   * מה שאפשר לערוך מלבד המספרים: שם המערכת, רשימת הסוכנים, ומחיקת תקופה.
+   *
+   * הדוח קובע את נקודת הפתיחה, אבל תיק מתחלף — סוכן מתחיל, סוכן עוזב, שם
+   * נכתב בטעות, וחודש שהוזן בטעות צריך לרדת. הכול כאן, עם ביטול.
+   */
+  function editors(ctx) {
+    const settings = Store.settings();
+    const agents = Store.state.agents;
+    const sales = Store.sales();
+    const count = new Map();
+    sales.forEach((s) => count.set(s.agent, (count.get(s.agent) || 0) + 1));
+    const years = Store.years().slice().reverse();
+
+    return `
+      <div class="grid cols-2" style="align-items:start">
+        ${UI.card("שם המערכת", {
+          sub: "מה שמופיע בכותרת, בתפריט ובקובץ שיוצא",
+          body: `
+            <div class="form-grid">
+              <label class="stacked"><span>שם</span>
+                <input class="input" id="set-name" value="${Fmt.escape(settings.name)}"></label>
+              <label class="stacked"><span>תיאור או סניף</span>
+                <input class="input" id="set-branch"
+                       value="${Fmt.escape(settings.branch)}"></label>
+            </div>
+            <div class="row-actions" style="margin-top:13px">
+              <button class="btn btn-primary" id="set-save">שמירה</button>
+            </div>`,
+        })}
+
+        ${UI.card("סוכנים", {
+          sub: `${agents.length} סוכנים · שינוי שם משפיע על כל המסכים`,
+          flush: true,
+          body: `
+            <div class="list">
+              ${agents.map((a) => `
+                <div class="list-row">
+                  ${UI.avatar(a.name)}
+                  <div class="grow">
+                    <input class="input agent-name" data-agent="${Fmt.escape(a.no)}"
+                           value="${Fmt.escape(a.name)}" aria-label="שם הסוכן">
+                    <div class="list-sub">מספר ${Fmt.escape(a.no)} · ${
+                      Fmt.number(count.get(a.no) || 0)} תנועות</div>
+                  </div>
+                  <button class="btn btn-sm btn-ghost btn-icon" data-agent-del="${
+                    Fmt.escape(a.no)}" aria-label="מחיקת הסוכן">${UI.icon("trash", 15)}</button>
+                </div>`).join("")}
+            </div>
+            <div class="toolbar" style="border-bottom:0;border-top:1px solid var(--line)">
+              <label class="search" style="max-width:120px">
+                <input class="input" id="agent-no" placeholder="מספר" inputmode="numeric">
+              </label>
+              <label class="search">
+                <input class="input" id="agent-name" placeholder="שם הסוכן החדש">
+              </label>
+              <div class="spacer row-actions">
+                <button class="btn" id="agent-add">${UI.icon("plus", 15)} הוספה</button>
+              </div>
+            </div>`,
+        })}
+      </div>
+
+      ${UI.card("מחיקת תקופה", {
+        sub: "מוחק את כל התנועות של חודש או של שנה — אפשר לבטל מיד אחרי",
+        body: `
+          <div class="form-grid">
+            <label class="stacked"><span>שנה</span>
+              <select class="select" id="del-year">
+                ${years.map((y) => `<option ${y === ctx.year ? "selected" : ""}>${y}</option>`)
+                  .join("")}
+              </select></label>
+            <label class="stacked"><span>חודש</span>
+              <select class="select" id="del-month">
+                <option value="">כל השנה</option>
+                ${Fmt.MONTHS.map((name, i) => (
+                  `<option value="${i + 1}">${name}</option>`)).join("")}
+              </select></label>
+          </div>
+          <div class="row-actions" style="margin-top:13px">
+            <button class="btn btn-danger" id="del-run">${
+              UI.icon("trash", 15)} מחיקת התקופה</button>
+            <span class="hint">מה שנמחק חוזר עם ביטול (Ctrl+Z), ואיפוס מלא מחזיר את
+              נתוני הדוחות.</span>
+          </div>`,
+      })}`;
+  }
+
+  function wireEditors(root, ctx) {
+    root.querySelector("#set-save").addEventListener("click", () => {
+      Store.setSettings({
+        name: root.querySelector("#set-name").value.trim() || "BENY",
+        branch: root.querySelector("#set-branch").value.trim(),
+      });
+      App.toast("השם עודכן", "up", { undo: true });
+    });
+
+    UI.on(root, ".agent-name", "change", (e) => {
+      Store.renameAgent(e.target.dataset.agent, e.target.value);
+      App.toast("שם הסוכן עודכן", "up", { undo: true });
+    });
+
+    UI.on(root, "[data-agent-del]", "click", (e) => {
+      const no = e.currentTarget.dataset.agentDel;
+      const rows = Store.sales().filter((s) => s.agent === no).length;
+      const others = Store.state.agents.filter((a) => a.no !== no);
+      App.confirm({
+        title: `למחוק את ${Store.agentName(no)}?`,
+        body: rows
+          ? `לסוכן הזה ${Fmt.number(rows)} תנועות. הן יעברו ל${
+              others.length ? Store.agentName(others[0].no) : "אף סוכן — והן יימחקו"}.`
+          : "לסוכן אין תנועות במערכת.",
+        danger: "מחיקת הסוכן",
+        onConfirm() {
+          Store.removeAgent(no, others.length ? others[0].no : null);
+          App.toast("הסוכן נמחק", "", { undo: true });
+        },
+      });
+    });
+
+    root.querySelector("#agent-add").addEventListener("click", () => {
+      const no = root.querySelector("#agent-no").value.trim();
+      const name = root.querySelector("#agent-name").value.trim();
+      try {
+        Store.addAgent(no, name);
+        App.toast(`${name || no} נוסף`, "up", { undo: true });
+      } catch (err) {
+        App.toast(err.message, "down");
+      }
+    });
+
+    root.querySelector("#del-run").addEventListener("click", () => {
+      const year = Number(root.querySelector("#del-year").value);
+      const month = Number(root.querySelector("#del-month").value) || null;
+      const rows = Store.sales().filter((s) => s.y === year && (!month || s.m === month));
+      if (!rows.length) return App.toast("אין תנועות בתקופה הזו", "down");
+      App.confirm({
+        title: `למחוק את ${month ? `${Fmt.month(month)} ${year}` : year}?`,
+        body: `${Fmt.number(rows.length)} תנועות בסך ${
+          Fmt.money(Metrics.sum(rows.map((s) => s.a)))} יימחקו מהמערכת.`,
+        danger: "מחיקה",
+        onConfirm() {
+          Store.deletePeriod(year, month);
+          App.toast("התקופה נמחקה", "", { undo: true });
+        },
+      });
+    });
+  }
+
   function render(root, ctx) {
     const years = Store.years();
     const saved = Store.state.savedAt;
@@ -201,9 +350,13 @@ window.ViewSettings = (function () {
           </div>`,
       })}
 
+      ${editors(ctx)}
+
       ${foreignCard()}
 
       ${reconciliation(ctx)}`;
+
+    wireEditors(root, ctx);
 
     UI.on(root, "[data-customer]", "click",
       (e) => App.openCustomer(e.currentTarget.dataset.customer));

@@ -15,6 +15,9 @@ window.Store = (function () {
     sales: new Map(),     // key(c,p,agent,y,m) -> { c, p, agent, y, m, a, source }
     targets: new Map(),   // `${no}|${year}` -> amount
     activities: [],
+    // שם המערכת והסניף ניתנים לעריכה מתוך האפליקציה, ולכן הם חלק מהמצב
+    // שנשמר ומגובה — ולא קבועים בקוד.
+    settings: {},
     savedAt: null,
     seedVersion: 0,
   };
@@ -89,6 +92,7 @@ window.Store = (function () {
       saleKey(sale.c, sale.p, sale.agent, sale.y, sale.m, sale.cur), sale]));
     state.targets = new Map();
     state.activities = [];
+    state.settings = {};
     state.seedVersion = seed.seed_version || 1;
   }
 
@@ -128,6 +132,7 @@ window.Store = (function () {
       sales: [...state.sales.values()],
       targets: [...state.targets.entries()],
       activities: state.activities,
+      settings: state.settings,
       seedVersion: state.seedVersion,
       savedAt: new Date().toISOString(),
     };
@@ -142,6 +147,7 @@ window.Store = (function () {
       saleKey(s.c, s.p, s.agent, s.y, s.m, s.cur), s]));
     state.targets = new Map(raw.targets || []);
     state.activities = raw.activities || [];
+    state.settings = raw.settings || {};
     state.savedAt = raw.savedAt || null;
     state.seedVersion = raw.seedVersion || 0;
   }
@@ -149,6 +155,16 @@ window.Store = (function () {
   function persist() {
     state.savedAt = new Date().toISOString();
     writeStorage(cfg.storageKey, JSON.stringify(serialize()));
+  }
+
+  /** בונה מחדש את מפת התנועות אחרי שינוי שנוגע למפתח שלהן. */
+  function rewriteSales(change) {
+    const next = new Map();
+    state.sales.forEach((sale) => {
+      const row = change(sale);
+      next.set(saleKey(row.c, row.p, row.agent, row.y, row.m, row.cur), row);
+    });
+    state.sales = next;
   }
 
   /* --------------------------------------------------------- היסטוריית ביטול */
@@ -212,6 +228,15 @@ window.Store = (function () {
       return months.length ? Math.max(...months) : 12;
     },
     target: (no, year) => state.targets.get(`${no}|${year}`) || 0,
+
+    /** שם המערכת והסניף — מה שנערך גובר על ברירת המחדל שבקוד. */
+    settings: () => ({ name: cfg.name, branch: cfg.branch, ...state.settings }),
+
+    setSettings(patch) {
+      commit("עדכון שם המערכת", () => {
+        state.settings = { ...state.settings, ...patch };
+      });
+    },
 
     /** השנים שהדוחות מכסים, גם אם אין להן עדיין תנועות במערכת. */
     seedYears: () => (window.GADOT_DATASET.years || []).slice(),
@@ -284,6 +309,147 @@ window.Store = (function () {
             state.sales.set(key, { c, p, agent, y: year, m: month, a: value,
                                    source: "manual" });
           }
+        });
+      });
+    },
+
+    /* ---------------------------------------------------------------- סוכנים
+       הדוח מביא את הסוכנים שיש בו, אבל תיק מתחלף: סוכן חדש מתחיל, סוכן ותיק
+       עוזב, ושם נכתב בטעות. שלוש הפעולות האלה מחזיקות את הרשימה מעודכנת בלי
+       לגעת בתנועות עצמן, חוץ מהעברה מפורשת של תיק. */
+    addAgent(no, name) {
+      const id = String(no).trim();
+      if (!id) throw new Error("צריך מספר סוכן");
+      if (state.agents.some((a) => a.no === id)) throw new Error("מספר הסוכן כבר קיים");
+      commit(`הוספת ${name || id}`, () => {
+        state.agents = [...state.agents, { no: id, name: String(name).trim() || id }];
+      });
+    },
+
+    renameAgent(no, name) {
+      const agent = state.agents.find((a) => a.no === no);
+      if (!agent || !String(name).trim() || String(name).trim() === agent.name) return;
+      commit(`שינוי שם ${agent.name}`, () => { agent.name = String(name).trim(); });
+    },
+
+    /** מחיקת סוכן. תנועות שלו עוברות לסוכן אחר, או נמחקות אם לא נבחר יעד. */
+    removeAgent(no, moveTo) {
+      const agent = state.agents.find((a) => a.no === no);
+      if (!agent) return;
+      commit(`מחיקת ${agent.name}`, () => {
+        state.agents = state.agents.filter((a) => a.no !== no);
+        [...state.sales.entries()].forEach(([saleKeyValue, sale]) => {
+          if (sale.agent !== no) return;
+          state.sales.delete(saleKeyValue);
+          if (!moveTo) return;
+          const moved = { ...sale, agent: moveTo };
+          state.sales.set(saleKey(moved.c, moved.p, moveTo, moved.y, moved.m, moved.cur),
+                          moved);
+        });
+      });
+    },
+
+    /** מספר לקוח שהשתנה בדוח — כל מה שתלוי בו עובר איתו. */
+    changePartyNumber(oldNo, newNo) {
+      const id = String(newNo).trim();
+      const party = state.parties.get(oldNo);
+      if (!party) throw new Error("הלקוח לא נמצא");
+      if (!id) throw new Error("צריך מספר לקוח");
+      if (id === oldNo) return;
+      if (state.parties.has(id)) throw new Error("המספר כבר שייך ללקוח אחר");
+      commit(`שינוי מספר ${party.name}`, () => {
+        state.parties.delete(oldNo);
+        state.parties.set(id, { ...party, no: id });
+        rewriteSales((sale) => ({
+          ...sale,
+          c: sale.c === oldNo ? id : sale.c,
+          p: sale.p === oldNo ? id : sale.p,
+        }));
+        [...state.targets.entries()].forEach(([targetKey, value]) => {
+          const [partyNo, year] = targetKey.split("|");
+          if (partyNo !== oldNo) return;
+          state.targets.delete(targetKey);
+          state.targets.set(`${id}|${year}`, value);
+        });
+        state.activities.forEach((row) => {
+          if (row.party_no === oldNo) row.party_no = id;
+        });
+      });
+    },
+
+    /**
+     * איחוד שני לקוחות.
+     *
+     * הדוח מדפיס לפעמים את אותה חברה תחת שני מספרי חשבון. מי שיודע שמדובר
+     * באותה חברה יכול לאחד אותם, והסכומים מצטברים לשורה אחת לכל חודש.
+     */
+    mergeParty(fromNo, intoNo) {
+      const from = state.parties.get(fromNo);
+      const into = state.parties.get(intoNo);
+      if (!from || !into || fromNo === intoNo) throw new Error("צריך שני לקוחות שונים");
+      commit(`איחוד ${from.name} לתוך ${into.name}`, () => {
+        const merged = new Map();
+        state.sales.forEach((sale) => {
+          const row = { ...sale,
+                        c: sale.c === fromNo ? intoNo : sale.c,
+                        p: sale.p === fromNo ? intoNo : sale.p };
+          const id = saleKey(row.c, row.p, row.agent, row.y, row.m, row.cur);
+          const held = merged.get(id);
+          // שתי שורות שהופכות לאותו מפתח מצטברות; אחרת אחת היתה דורסת את השנייה.
+          merged.set(id, held
+            ? { ...held, a: Math.round((held.a + row.a) * 100) / 100,
+                source: held.source === "erp" && row.source === "erp" ? "erp" : "manual" }
+            : row);
+        });
+        state.sales = merged;
+        state.parties.delete(fromNo);
+        [...state.targets.entries()].forEach(([targetKey, value]) => {
+          const [partyNo, year] = targetKey.split("|");
+          if (partyNo !== fromNo) return;
+          state.targets.delete(targetKey);
+          const target = `${intoNo}|${year}`;
+          state.targets.set(target, (state.targets.get(target) || 0) + value);
+        });
+        state.activities.forEach((row) => {
+          if (row.party_no === fromNo) row.party_no = intoNo;
+        });
+      });
+    },
+
+    /** מחיקת כל התנועות של חודש, או של שנה שלמה. */
+    deletePeriod(year, month) {
+      const label = month ? `${Fmt.month(month)} ${year}` : String(year);
+      commit(`מחיקת ${label}`, () => {
+        [...state.sales.entries()].forEach(([saleKeyValue, sale]) => {
+          if (sale.y === year && (!month || sale.m === month)) state.sales.delete(saleKeyValue);
+        });
+      });
+    },
+
+    /** שנה שלמה של לקוח אחד — שנים-עשר חודשים בפעולת ביטול אחת. */
+    setCustomerYear(customerNo, year, months, label) {
+      const known = api.lastKnown(customerNo);
+      commit(label || `עדכון ${year} · ${api.partyName(customerNo)}`, () => {
+        Object.entries(months).forEach(([month, raw]) => {
+          const m = Number(month);
+          const value = Math.round(Fmt.parseAmount(raw) * 100) / 100;
+          const key = saleKey(customerNo, known.payer, known.agent, year, m);
+          if (!value) state.sales.delete(key);
+          else {
+            state.sales.set(key, { c: customerNo, p: known.payer, agent: known.agent,
+                                   y: year, m, a: value, source: "manual" });
+          }
+        });
+      });
+    },
+
+    /** יעדים של שנה — שורה אחת בהיסטוריית הביטול לכל הרשימה. */
+    setTargets(year, rows, label) {
+      commit(label || `עדכון יעדי ${year}`, () => {
+        rows.forEach((row) => {
+          const value = Math.round(Fmt.parseAmount(row.value) * 100) / 100;
+          if (value) state.targets.set(`${row.no}|${year}`, value);
+          else state.targets.delete(`${row.no}|${year}`);
         });
       });
     },

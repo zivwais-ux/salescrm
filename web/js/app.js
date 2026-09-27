@@ -55,8 +55,8 @@ window.App = (function () {
     const n = counts();
     $("#sidebar").innerHTML = `
       <div class="brand">
-        <span class="wordmark">${Fmt.escape(cfg.name)}</span>
-        <span class="brand-sub">${Fmt.escape(cfg.branch)}</span>
+        <span class="wordmark">${Fmt.escape(Store.settings().name)}</span>
+        <span class="brand-sub">${Fmt.escape(Store.settings().branch)}</span>
       </div>
 
       ${NAV.map((item) => `
@@ -141,7 +141,7 @@ window.App = (function () {
           ctx.agent === "all" ? "" : ` · ${Store.agentName(ctx.agent)}`}`;
 
     $("#topbar").innerHTML = `
-      <span class="wordmark only-mobile">${Fmt.escape(cfg.name)}</span>
+      <span class="wordmark only-mobile">${Fmt.escape(Store.settings().name)}</span>
       <div class="page-head">
         <div class="page-title">${Fmt.escape(item.title)}</div>
         ${sub ? `<div class="page-sub">${Fmt.escape(sub)}</div>` : ""}
@@ -431,6 +431,9 @@ window.App = (function () {
           <div class="form-grid">
             <label class="stacked"><span>שם</span>
               <input class="input" id="p-name" value="${Fmt.escape(party.name)}"></label>
+            <label class="stacked"><span>מספר לקוח</span>
+              <input class="input" id="p-no" inputmode="numeric" dir="ltr"
+                     value="${Fmt.escape(party.no)}"></label>
             <label class="stacked"><span>סטטוס</span>
               <select class="select" id="p-status">${Object.entries(statuses).map(([k, v]) => (
                 `<option value="${k}" ${(party.profile.status || "active") === k
@@ -459,9 +462,12 @@ window.App = (function () {
             <textarea id="p-notes">${Fmt.escape(party.profile.notes || "")}</textarea></label>
           <div class="row-actions" style="margin-top:14px">
             <button class="btn btn-primary" id="p-save">שמירה</button>
+            <button class="btn" id="p-merge">${UI.icon("users", 15)} איחוד עם לקוח אחר</button>
             <button class="btn btn-danger" id="p-delete">${
               UI.icon("trash", 15)} מחיקת הלקוח</button>
-          </div>`,
+          </div>
+          <p class="hint" style="margin-top:10px">שינוי המספר מעביר איתו את כל התנועות,
+            היעדים והפעילות. איחוד מצרף לקוח אחר לתוך זה, והסכומים מצטברים.</p>`,
       }),
 
       activity: `
@@ -532,11 +538,45 @@ window.App = (function () {
           ], Fmt.SHORT, { height: 210, side: 42 });
         }
 
+        const merge = node.querySelector("#p-merge");
+        if (merge) {
+          merge.addEventListener("click", () => {
+            pickCustomer((otherNo) => {
+              if (otherNo === no) return toast("צריך לבחור לקוח אחר", "down");
+              confirm({
+                title: `לאחד את ${Store.partyName(otherNo)} לתוך ${party.name}?`,
+                body: `כל התנועות, היעדים והפעילות של ${Store.partyName(otherNo)} `
+                  + `(${otherNo}) יעברו ל${party.name} (${no}), והסכומים יצטברו. `
+                  + "הלקוח השני יימחק מהרשימה. אפשר לבטל מיד אחרי.",
+                danger: "איחוד הלקוחות",
+                onConfirm() {
+                  try {
+                    Store.mergeParty(otherNo, no);
+                    toast("הלקוחות אוחדו", "up", { undo: true });
+                    openCustomer(no);
+                  } catch (err) {
+                    toast(err.message, "down");
+                  }
+                },
+              });
+            }, { keepDrawer: true });
+          });
+        }
+
         const save = node.querySelector("#p-save");
         if (save) {
           save.addEventListener("click", () => {
-            Store.renameParty(no, node.querySelector("#p-name").value);
-            Store.updateProfile(no, {
+            const nextNo = node.querySelector("#p-no").value.trim();
+            if (nextNo && nextNo !== no) {
+              try {
+                Store.changePartyNumber(no, nextNo);
+              } catch (err) {
+                return toast(err.message, "down");
+              }
+            }
+            Store.renameParty(nextNo || no, node.querySelector("#p-name").value);
+            const id = node.querySelector("#p-no").value.trim() || no;
+            Store.updateProfile(id, {
               status: node.querySelector("#p-status").value,
               tier: node.querySelector("#p-tier").value,
               segment: node.querySelector("#p-segment").value.trim(),
@@ -545,8 +585,9 @@ window.App = (function () {
               contact_email: node.querySelector("#p-email").value.trim(),
               notes: node.querySelector("#p-notes").value.trim(),
             });
-            Store.setTarget(no, ctx.year, node.querySelector("#p-target").value);
+            Store.setTarget(id, ctx.year, node.querySelector("#p-target").value);
             toast("פרטי הלקוח נשמרו", "up");
+            if (id !== no) openCustomer(id);
           });
 
           node.querySelector("#p-delete").addEventListener("click", () => {
@@ -619,7 +660,7 @@ window.App = (function () {
     const intro = `
       <div class="chat-intro">
         <div class="chat-hello">
-          <span class="wordmark small">${Fmt.escape(cfg.name)}</span>
+          <span class="wordmark small">${Fmt.escape(Store.settings().name)}</span>
           <p>שאלו אותי על הנתונים. אני שולף את התשובה מהמערכת — לא ממציא מספרים,
              ואם אין לי כיסוי לשאלה אני אומר את זה.</p>
         </div>

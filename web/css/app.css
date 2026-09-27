@@ -1309,6 +1309,10 @@ kbd {
    ומה רשום עכשיו. הכול בשורה אחת, והשדה תמיד באותו מקום כדי שאפשר יהיה
    לרוץ על הרשימה במקלדת בלי לחפש אותו. */
 .entry-period { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* שם סוכן נערך במקום, בלי טופס נפרד */
+.agent-name { height: 32px; font-size: 13px; font-weight: 550; }
+.entry-tabs { border: 0; gap: 0; }
+.entry-tabs button { padding: 6px 10px; font-size: 12.5px; }
 .month-seg { flex-wrap: wrap; }
 .month-seg button { position: relative; min-width: 46px; }
 .month-dot {

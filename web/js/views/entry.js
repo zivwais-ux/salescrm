@@ -15,6 +15,10 @@
    ========================================================================== */
 window.ViewEntry = (function () {
   const ui = {
+    // שלוש דרכים להזין את אותם נתונים, לפי מה שיש ביד: חודש שלם של לקוחות,
+    // לקוח אחד לאורך שנה, או יעדי השנה.
+    mode: "month",
+    customer: null,
     tab: "list",
     year: null,
     month: null,
@@ -25,7 +29,10 @@ window.ViewEntry = (function () {
     drafts: new Map(),
   };
 
-  const key = () => `${ui.year}|${ui.month}`;
+  // טיוטה נפרדת לכל מה שנערך: חודש, לקוח-בשנה, או יעדי שנה.
+  const key = () => (ui.mode === "customer" ? `c${ui.customer}|${ui.year}`
+    : ui.mode === "targets" ? `t|${ui.year}`
+    : `${ui.year}|${ui.month}`);
   const DRAFT_KEY = "beny_entry_draft_v1";
 
   /**
@@ -130,16 +137,32 @@ window.ViewEntry = (function () {
       || b.recent - a.recent || a.name.localeCompare(b.name, "he"));
   }
 
-  /** מה שהוקלד ועוד לא נשמר, מול מה שכבר רשום באותו חודש. */
+  /** מה שהוקלד ועוד לא נשמר, מול מה שכבר רשום. */
   function pending() {
     const out = [];
-    draft().forEach((raw, no) => {
+    draft().forEach((raw, id) => {
       const value = Math.round(Fmt.parseAmount(raw) * 100) / 100;
-      const current = Metrics.sum(Store.sales()
-        .filter((s) => s.c === no && s.y === ui.year && s.m === ui.month).map((s) => s.a));
-      if (Math.abs(value - current) > 0.005) out.push({ no, value, current });
+      const current = ui.mode === "customer" ? monthOf(ui.customer, ui.year, Number(id))
+        : ui.mode === "targets" ? Store.target(id, ui.year)
+        : monthOf(id, ui.year, ui.month);
+      if (Math.abs(value - current) > 0.005) out.push({ no: id, value, current });
     });
     return out;
+  }
+
+  /** כמה רשום ללקוח באותו חודש, על פני כל המשלמים והסוכנים שלו. */
+  function monthOf(customerNo, year, month) {
+    return Metrics.sum(Store.sales()
+      .filter((s) => s.c === customerNo && s.y === year && s.m === month).map((s) => s.a));
+  }
+
+  function modeTitle() {
+    if (ui.mode === "customer") {
+      return `הזנה לפי לקוח · ${ui.customer ? Fmt.escape(Store.partyName(ui.customer))
+        : "בחירת לקוח"} · ${ui.year}`;
+    }
+    if (ui.mode === "targets") return `יעדים שנתיים · ${ui.year}`;
+    return `הזנת מכירות · ${Fmt.month(ui.month)} ${ui.year}`;
   }
 
   /* ------------------------------------------------------------------ ציור */
@@ -147,6 +170,24 @@ window.ViewEntry = (function () {
     const years = Store.years();
     const next = years[years.length - 1] + 1;
     const options = [...years, next];
+    if (ui.mode !== "month") {
+      return `<div class="entry-period">
+        <label class="field">
+          <span>שנה</span>
+          <select class="select" id="entry-year">
+            ${options.map((y) => `<option ${y === ui.year ? "selected" : ""}>${y}</option>`)
+              .join("")}
+          </select>
+        </label>
+        ${ui.mode === "customer" ? `
+          <button class="btn" id="entry-pick">${UI.icon("customers", 15)}
+            <span class="ellipsis" style="max-width:220px">${ui.customer
+              ? Fmt.escape(Store.partyName(ui.customer)) : "בחירת לקוח"}</span></button>
+          ${ui.customer ? `<span class="hint">מספר ${Fmt.escape(ui.customer)}</span>` : ""}`
+          : `<span class="hint">יעד שנתי לכל לקוח — ההשוואה מולו מופיעה בלוח הבקרה
+             ובכרטיס הלקוח</span>`}
+      </div>`;
+    }
     return `<div class="entry-period">
       <label class="field">
         <span>שנה</span>
@@ -204,9 +245,136 @@ window.ViewEntry = (function () {
     </div>`;
   }
 
+  /** לקוח אחד, שנים-עשר חודשים. */
+  function customerBody() {
+    if (!ui.customer) {
+      return UI.card("", { body: UI.empty("צריך לבחור לקוח",
+        "בוחרים לקוח, ומקלידים את שנים-עשר החודשים שלו בבת אחת.", "customers") });
+    }
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+    const current = months.map((m) => monthOf(ui.customer, ui.year, m));
+    const prior = months.map((m) => monthOf(ui.customer, ui.year - 1, m));
+    const typedTotal = months.reduce((sum, m) => {
+      const raw = draft().get(String(m));
+      return sum + (raw !== undefined ? Math.round(Fmt.parseAmount(raw) * 100) / 100
+                                      : current[m - 1]);
+    }, 0);
+    const priorTotal = Metrics.sum(prior);
+
+    return UI.card("", {
+      flush: true,
+      body: `
+        <div class="toolbar">
+          <span class="hint">${Fmt.money(typedTotal)} ב-${ui.year}${priorTotal
+            ? ` · ${Fmt.money(priorTotal)} ב-${ui.year - 1} · ${
+                Fmt.percent(Metrics.change(typedTotal, priorTotal), 1)}` : ""}</span>
+          <div class="spacer row-actions">
+            <button class="btn btn-sm" id="entry-open-card">${
+              UI.icon("file", 15)} כרטיס הלקוח</button>
+          </div>
+        </div>
+        <div class="entry-list">
+          ${months.map((m) => {
+            const typed = draft().has(String(m)) ? draft().get(String(m)) : "";
+            const value = typed !== "" ? Math.round(Fmt.parseAmount(typed) * 100) / 100 : null;
+            const changed = value !== null && Math.abs(value - current[m - 1]) > 0.005;
+            return `<div class="entry-row ${changed ? "is-changed" : ""}">
+              <div class="grow">
+                <div class="entry-name">${Fmt.month(m)} ${ui.year}</div>
+                <div class="entry-hint">${prior[m - 1]
+                  ? `${Fmt.monthShort(m)} ${ui.year - 1}: ${Fmt.money(prior[m - 1])}`
+                  : `אין תנועה ב-${Fmt.monthShort(m)} ${ui.year - 1}`}</div>
+              </div>
+              <label class="entry-field">
+                <input class="input num" inputmode="decimal" data-no="${m}"
+                       value="${Fmt.escape(typed !== "" ? typed
+                         : (current[m - 1] ? Fmt.number(current[m - 1]) : ""))}"
+                       data-raw="${current[m - 1] || ""}"
+                       placeholder="0" aria-label="${Fmt.month(m)}">
+              </label>
+            </div>`;
+          }).join("")}
+        </div>`,
+    });
+  }
+
+  /** יעד שנתי לכל לקוח. */
+  function targetsBody() {
+    const book = Metrics.catalog();
+    const sold = new Map();
+    const soldPrior = new Map();
+    Store.sales().forEach((s) => {
+      if (s.y === ui.year) sold.set(s.c, (sold.get(s.c) || 0) + s.a);
+      if (s.y === ui.year - 1) soldPrior.set(s.c, (soldPrior.get(s.c) || 0) + s.a);
+    });
+    const term = ui.search.trim().toLowerCase();
+    const list = Store.parties()
+      .filter((p) => book.shipTo.has(p.no) && !book.buckets.has(p.no))
+      .filter((p) => !term || p.name.toLowerCase().includes(term) || p.no.includes(term))
+      .map((p) => ({ no: p.no, name: p.name, target: Store.target(p.no, ui.year),
+                     sold: sold.get(p.no) || 0, prior: soldPrior.get(p.no) || 0 }))
+      .filter((c) => ui.scope !== "filled" || c.target || draft().has(c.no))
+      .sort((a, b) => (b.target || b.prior) - (a.target || a.prior) || b.sold - a.sold);
+
+    const totalTarget = list.reduce((sum, c) => {
+      const raw = draft().get(c.no);
+      return sum + (raw !== undefined ? Math.round(Fmt.parseAmount(raw) * 100) / 100
+                                      : c.target);
+    }, 0);
+
+    return UI.card("", {
+      flush: true,
+      body: `
+        <div class="toolbar toolbar-wrap">
+          <label class="search">
+            ${UI.icon("search", 15)}
+            <input class="input" type="search" id="entry-search"
+                   placeholder="חיפוש לקוח" value="${Fmt.escape(ui.search)}">
+          </label>
+          <div class="seg">
+            ${[["likely", "כל הלקוחות"], ["filled", "עם יעד"]].map(([id, label]) => `
+              <button data-scope="${id}" class="${ui.scope === id ? "is-active" : ""}">${
+                label}</button>`).join("")}
+          </div>
+          <div class="spacer row-actions">
+            <span class="hint">סך היעדים: ${Fmt.money(totalTarget)}</span>
+          </div>
+        </div>
+        <div class="entry-list">
+          ${list.length ? list.map((c) => {
+            const typed = draft().has(c.no) ? draft().get(c.no) : "";
+            const value = typed !== "" ? Math.round(Fmt.parseAmount(typed) * 100) / 100 : null;
+            const changed = value !== null && Math.abs(value - c.target) > 0.005;
+            const target = value !== null ? value : c.target;
+            return `<div class="entry-row ${changed ? "is-changed" : ""}">
+              ${UI.avatar(c.name)}
+              <div class="grow">
+                <div class="entry-name ellipsis">${Fmt.escape(c.name)}</div>
+                <div class="entry-hint ellipsis">מכר ${Fmt.money(c.sold)} ב-${ui.year}${
+                  c.prior ? ` · ${Fmt.money(c.prior)} ב-${ui.year - 1}` : ""}${
+                  target ? ` · ${((c.sold / target) * 100).toFixed(0)}% מהיעד` : ""}</div>
+              </div>
+              <label class="entry-field">
+                <input class="input num" inputmode="decimal" data-no="${Fmt.escape(c.no)}"
+                       value="${Fmt.escape(typed !== "" ? typed
+                         : (c.target ? Fmt.number(c.target) : ""))}"
+                       data-raw="${c.target || ""}"
+                       placeholder="ללא יעד" aria-label="${Fmt.escape(c.name)}">
+              </label>
+            </div>`;
+          }).join("") : UI.empty("אין לקוחות בסינון הזה", "", "search")}
+        </div>`,
+    });
+  }
+
   function pasteTab() {
     return UI.card("הדבקה מאקסל", {
       sub: "עמודה של לקוח (מספר או שם) ועמודה של סכום — מה שמעתיקים מגיליון",
+      actions: `<nav class="tabs entry-tabs">
+        ${[["list", "רשימה"], ["paste", "הדבקה"]].map(([id, label]) => `
+          <button data-tab="${id}" class="${ui.tab === id ? "is-active" : ""}">${
+            label}</button>`).join("")}
+      </nav>`,
       body: `
         <textarea id="paste-box" style="min-height:190px;font-family:inherit"
           placeholder="202509263&#9;124500&#10;קרגל בע&quot;מ&#9;98,300&#10;202507723, 45000"
@@ -263,11 +431,15 @@ window.ViewEntry = (function () {
       Object.assign(ui, defaultPeriod());
     }
 
-    const list = candidates();
+    const list = ui.mode === "month" ? candidates() : [];
     const waiting = pending();
     const added = waiting.reduce((sum, r) => sum + (r.value - r.current), 0);
-    const monthTotal = Metrics.sum(Store.sales()
-      .filter((s) => s.y === ui.year && s.m === ui.month).map((s) => s.a)) + added;
+    const base = ui.mode === "customer"
+      ? Metrics.sum(Store.sales()
+          .filter((s) => s.c === ui.customer && s.y === ui.year).map((s) => s.a))
+      : Metrics.sum(Store.sales()
+          .filter((s) => s.y === ui.year && s.m === ui.month).map((s) => s.a));
+    const monthTotal = base + added;
     const lastYearTotal = Metrics.sum(Store.sales()
       .filter((s) => s.y === ui.year - 1 && s.m === ui.month).map((s) => s.a));
     const changePct = Metrics.change(monthTotal, lastYearTotal);
@@ -276,28 +448,25 @@ window.ViewEntry = (function () {
       <section class="card">
         <header class="card-head">
           <div>
-            <h3>הזנת מכירות · ${Fmt.month(ui.month)} ${ui.year}</h3>
+            <h3>${modeTitle()}</h3>
             <div class="sub">${Store.years().includes(ui.year)
               ? "מה שיוזן נשמר לצד נתוני הדוח ומסומן כהזנה ידנית"
               : `${ui.year} אינה בדוחות — מה שיוזן יפתח אותה במערכת`}</div>
           </div>
-          <div class="spacer no-mobile">
-            <nav class="tabs">
-              ${[["list", "רשימת לקוחות"], ["paste", "הדבקה מאקסל"]].map(([id, label]) => `
-                <button data-tab="${id}" class="${ui.tab === id ? "is-active" : ""}">${
-                  label}</button>`).join("")}
-            </nav>
+          <div class="spacer">
+            <div class="seg">
+              ${[["month", "לפי חודש"], ["customer", "לפי לקוח"], ["targets", "יעדים"]]
+                .map(([id, label]) => `<button data-mode="${id}" class="${
+                  ui.mode === id ? "is-active" : ""}">${label}</button>`).join("")}
+            </div>
           </div>
         </header>
-        <nav class="tabs only-mobile-flex">
-          ${[["list", "רשימת לקוחות"], ["paste", "הדבקה מאקסל"]].map(([id, label]) => `
-            <button data-tab="${id}" class="${ui.tab === id ? "is-active" : ""}">${
-              label}</button>`).join("")}
-        </nav>
         <div class="card-body">${periodBar()}</div>
       </section>
 
-      ${ui.tab === "paste" ? pasteTab() : UI.card("", {
+      ${ui.mode === "customer" ? customerBody()
+        : ui.mode === "targets" ? targetsBody()
+        : ui.tab === "paste" ? pasteTab() : UI.card("", {
         flush: true,
         body: `
           <div class="toolbar toolbar-wrap">
@@ -312,6 +481,11 @@ window.ViewEntry = (function () {
                   ui.scope === id ? "is-active" : ""}">${label}</button>`).join("")}
             </div>
             <div class="spacer row-actions">
+              <nav class="tabs entry-tabs">
+                ${[["list", "רשימה"], ["paste", "הדבקה"]].map(([id, label]) => `
+                  <button data-tab="${id}" class="${ui.tab === id ? "is-active" : ""}">${
+                    label}</button>`).join("")}
+              </nav>
               <button class="btn" id="entry-new">${UI.icon("plus", 15)}
                 <span class="no-mobile">לקוח חדש</span></button>
             </div>
@@ -326,18 +500,44 @@ window.ViewEntry = (function () {
       <div class="save-bar ${waiting.length ? "is-on" : ""}">
         <div class="save-facts">
           <b>${Fmt.number(waiting.length)}</b> שורות ממתינות לשמירה
-          <span class="hint">· ${Fmt.signed(added)} · ${Fmt.month(ui.month)} יסתכם ב-${
-            Fmt.money(monthTotal)}${lastYearTotal
-              ? ` (${Fmt.percent(changePct, 1)} מול ${Fmt.money(lastYearTotal)} אשתקד)` : ""}</span>
+          <span class="hint">· ${ui.mode === "targets" ? Fmt.signed(added)
+            : `${Fmt.signed(added)} · ${ui.mode === "customer"
+              ? `${ui.year} יסתכם ב-${Fmt.money(monthTotal)}`
+              : `${Fmt.month(ui.month)} יסתכם ב-${Fmt.money(monthTotal)}${lastYearTotal
+                ? ` (${Fmt.percent(changePct, 1)} מול ${Fmt.money(lastYearTotal)} אשתקד)`
+                : ""}`}`}</span>
         </div>
         <div class="row-actions">
           <button class="btn" id="entry-clear">ניקוי</button>
-          <button class="btn btn-primary" id="entry-save">${
-            UI.icon("check", 15)} שמירת ${Fmt.month(ui.month)}</button>
+          <button class="btn btn-primary" id="entry-save">${UI.icon("check", 15)} ${
+            ui.mode === "targets" ? `שמירת יעדי ${ui.year}`
+              : ui.mode === "customer" ? `שמירת ${ui.year}`
+              : `שמירת ${Fmt.month(ui.month)}`}</button>
         </div>
       </div>`;
 
     /* ---------------------------------------------------------------- קשירה */
+    UI.on(root, "[data-mode]", "click", (e) => {
+      ui.mode = e.currentTarget.dataset.mode;
+      if (ui.mode === "targets") ui.scope = "likely";
+      if (ui.mode === "customer" && !ui.customer) {
+        const top = Metrics.overview({ year: ui.year, agent: ctx.agent }).customers[0];
+        ui.customer = top ? top.no : (Store.parties()[0] || {}).no;
+      }
+      render(root, ctx);
+    });
+
+    const pick = root.querySelector("#entry-pick");
+    if (pick) {
+      pick.addEventListener("click", () => App.pickCustomer((no) => {
+        ui.customer = no;
+        render(root, ctx);
+      }));
+    }
+
+    const openCard = root.querySelector("#entry-open-card");
+    if (openCard) openCard.addEventListener("click", () => App.openCustomer(ui.customer));
+
     root.querySelector("#entry-year").addEventListener("change", (e) => {
       ui.year = Number(e.target.value);
       render(root, ctx);
@@ -403,7 +603,9 @@ window.ViewEntry = (function () {
     root.querySelector("#entry-clear").addEventListener("click", () => {
       if (!pending().length) return App.toast("אין מה לנקות");
       App.confirm({
-        title: `לנקות את ההזנה של ${Fmt.month(ui.month)}?`,
+        title: `לנקות את ההזנה של ${ui.mode === "targets" ? `יעדי ${ui.year}`
+          : ui.mode === "customer" ? `${Store.partyName(ui.customer)} ${ui.year}`
+          : Fmt.month(ui.month)}?`,
         body: "מה שהוקלד ולא נשמר יימחק. נתונים שכבר נשמרו לא ייגעו.",
         danger: "ניקוי ההזנה",
         onConfirm() {
@@ -438,6 +640,24 @@ window.ViewEntry = (function () {
   function save(root, ctx) {
     const waiting = pending();
     if (!waiting.length) return App.toast("אין שינויים להזין", "down");
+
+    if (ui.mode === "targets") {
+      Store.setTargets(ui.year, waiting.map((row) => ({ no: row.no, value: row.value })));
+      clearDraft();
+      App.toast(`יעדי ${ui.year} נשמרו · ${waiting.length} לקוחות`, "up", { undo: true });
+      return render(root, ctx);
+    }
+
+    if (ui.mode === "customer") {
+      const months = {};
+      waiting.forEach((row) => { months[row.no] = row.value; });
+      Store.setCustomerYear(ui.customer, ui.year, months);
+      clearDraft();
+      App.toast(`${Store.partyName(ui.customer)} · ${ui.year} נשמר · ${
+        waiting.length} חודשים`, "up", { undo: true });
+      return render(root, ctx);
+    }
+
     const rows = waiting.map((row) => {
       const known = Store.lastKnown(row.no);
       return { c: row.no, p: known.payer, agent: known.agent, a: row.value };
@@ -446,7 +666,7 @@ window.ViewEntry = (function () {
     clearDraft();
     App.toast(`${Fmt.month(ui.month)} ${ui.year} נשמר · ${waiting.length} לקוחות`,
               "up", { undo: true });
-    render(root, ctx);
+    return render(root, ctx);
   }
 
   function showPaste(root, ctx, parsed) {
