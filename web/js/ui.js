@@ -94,10 +94,45 @@ window.UI = (function () {
     </section>`;
   }
 
+  /**
+   * שורת רשימה: ראשי תיבות, שם, שורת משנה, וערך בקצה.
+   *
+   * זו הצורה החוזרת ביותר במערכת — לקוח ברשימה, לקוח בשינוי, לקוח במגמה —
+   * והיא נבנתה ביד בכל מסך מחדש, כך שכל תיקון בה תפס מסך אחד ופספס שלושה.
+   */
+  function row({ name, title, sub = "", value = "", tone = "", data = "", extra = "" }) {
+    return `<div class="list-row" ${data}>
+      ${avatar(name)}
+      <div class="grow">
+        <div class="list-title ellipsis">${title}</div>
+        ${sub ? `<div class="list-sub ellipsis">${sub}</div>` : ""}
+      </div>
+      ${extra}
+      ${value ? `<div class="list-value ${tone}">${value}</div>` : ""}
+    </div>`;
+  }
+
+  /** המתג בין תרשים לטבלה. לכל גרף במערכת יש תאום טבלאי, וזו הדרך אליו. */
+  function viewToggle(id, showTable) {
+    return `<div class="view-toggle" role="group" aria-label="תצוגה">
+      <button data-view-chart="${id}" class="${showTable ? "" : "is-active"}"
+              title="תרשים" aria-pressed="${!showTable}">${icon("chart", 15)}</button>
+      <button data-view-table="${id}" class="${showTable ? "is-active" : ""}"
+              title="טבלה" aria-pressed="${showTable}">${icon("grid", 15)}</button>
+    </div>`;
+  }
+
+  /** שלד טעינה — מחזיק את המקום של תוכן שעוד לא הגיע, במקום קפיצה. */
+  function skeleton(rows = 3) {
+    return `<div class="skeleton" aria-hidden="true">${
+      Array.from({ length: rows }, () => '<div class="skeleton-row"></div>').join("")}</div>`;
+  }
+
   /** מאזין לאירוע על כל האלמנטים שתואמים לסלקטור. */
   function on(root, selector, event, handler) {
     root.querySelectorAll(selector).forEach((el) => el.addEventListener(event, handler));
   }
 
-  return { icon, avatar, initials, tint, delta, empty, card, on, PATHS };
+  return { icon, avatar, initials, tint, delta, empty, card, row, viewToggle, skeleton,
+           on, PATHS };
 })();

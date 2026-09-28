@@ -462,17 +462,16 @@ window.ViewEntry = (function () {
       <div class="plan-block-head">מה ישתנה · ${Fmt.number(rows.length)} לקוחות${
         gone.length ? ` · ${Fmt.number(gone.length)} היו ברשום ואינם בקובץ` : ""}</div>
       <div class="list">
-        ${top.map((c) => `
-          <div class="list-row" data-customer="${Fmt.escape(c.no)}">
-            ${UI.avatar(c.name)}
-            <div class="grow">
-              <div class="list-title ellipsis">${Fmt.escape(c.name)}</div>
-              <div class="list-sub">${c.fresh ? "לקוח חדש בחודש הזה"
-                : c.gone ? "היה רשום ואינו מופיע בקובץ"
-                : `${Fmt.money(c.before)} ← ${Fmt.money(c.after)}`}</div>
-            </div>
-            <div class="list-value ${c.delta >= 0 ? "up" : "down"}">${Fmt.signed(c.delta)}</div>
-          </div>`).join("")}
+        ${top.map((c) => UI.row({
+          name: c.name,
+          title: Fmt.escape(c.name),
+          sub: c.fresh ? "לקוח חדש בחודש הזה"
+            : c.gone ? "היה רשום ואינו מופיע בקובץ"
+            : `${Fmt.money(c.before)} ← ${Fmt.money(c.after)}`,
+          value: Fmt.signed(c.delta),
+          tone: c.delta >= 0 ? "up" : "down",
+          data: `data-customer="${Fmt.escape(c.no)}"`,
+        })).join("")}
       </div>
       ${rows.length > top.length ? `<div class="hint" style="padding:10px 4px 0">
         ועוד ${Fmt.number(rows.length - top.length)} לקוחות בשינוי קטן יותר</div>` : ""}

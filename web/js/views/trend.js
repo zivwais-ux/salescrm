@@ -14,12 +14,7 @@ window.ViewTrend = (function () {
     const showTable = asTable.has(id);
     return UI.card(title, {
       sub,
-      actions: `<div class="view-toggle" role="group" aria-label="תצוגה">
-          <button data-view-chart="${id}" class="${showTable ? "" : "is-active"}"
-                  title="תרשים" aria-pressed="${!showTable}">${UI.icon("chart", 15)}</button>
-          <button data-view-table="${id}" class="${showTable ? "is-active" : ""}"
-                  title="טבלה" aria-pressed="${showTable}">${UI.icon("grid", 15)}</button>
-        </div>`,
+      actions: UI.viewToggle(id, showTable),
       flush: true,
       body: `<div class="card-body" id="${id}">${body || ""}</div>`,
     });
@@ -27,17 +22,16 @@ window.ViewTrend = (function () {
 
   /** רשימת לקוחות עם מסלול חמש-שנתי זעיר לכל אחד. */
   function pathRows(items, tone) {
-    return `<div class="list list-scroll">${items.map((c) => `
-      <div class="list-row" data-customer="${Fmt.escape(c.no)}">
-        ${UI.avatar(c.name)}
-        <div class="grow">
-          <div class="list-title ellipsis">${Fmt.escape(c.name)}</div>
-          <div class="list-sub">${Fmt.money(c.start)} ← ${Fmt.money(c.end)}</div>
-        </div>
-        <span class="no-mobile">${Charts.sparkline(c.years, { flat: true,
-          color: `var(--${tone})`, width: 70 })}</span>
-        <div class="list-value ${tone}">${Fmt.signed(c.delta)}</div>
-      </div>`).join("")}</div>`;
+    return `<div class="list list-scroll">${items.map((c) => UI.row({
+      name: c.name,
+      title: Fmt.escape(c.name),
+      sub: `${Fmt.money(c.start)} ← ${Fmt.money(c.end)}`,
+      value: Fmt.signed(c.delta),
+      tone,
+      data: `data-customer="${Fmt.escape(c.no)}"`,
+      extra: `<span class="no-mobile">${Charts.sparkline(c.years, { flat: true,
+        color: `var(--${tone})`, width: 70 })}</span>`,
+    })).join("")}</div>`;
   }
 
   function render(root, ctx) {

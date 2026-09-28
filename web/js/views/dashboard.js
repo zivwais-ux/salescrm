@@ -248,12 +248,7 @@ window.ViewDashboard = (function () {
             <button data-pane="${key}" class="${ui.pane === key ? "is-active" : ""}">${
               label}</button>`).join("")}
         </div>
-        <div class="view-toggle" role="group" aria-label="תצוגה">
-          <button data-view-chart="${id}" class="${showTable ? "" : "is-active"}"
-                  title="תרשים" aria-pressed="${!showTable}">${UI.icon("chart", 15)}</button>
-          <button data-view-table="${id}" class="${showTable ? "is-active" : ""}"
-                  title="טבלה" aria-pressed="${showTable}">${UI.icon("grid", 15)}</button>
-        </div>`,
+        ${UI.viewToggle(id, showTable)}`,
       flush: true,
       body: `<div class="card-body" id="${id}"></div>`,
     });

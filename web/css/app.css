@@ -922,10 +922,27 @@ tfoot td {
   text-align: start;
   direction: ltr;
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: var(--fw-semi);
   flex: none;                 /* הסכום לעולם לא נדחק החוצה בגלל שם ארוך */
   white-space: nowrap;
 }
+.list-value.up { color: var(--up); }
+.list-value.down { color: var(--down); }
+
+/* שלד טעינה: מחזיק את הגובה של מה שעומד להגיע, כדי שהמסך לא יקפוץ סביבו */
+.skeleton { display: grid; gap: var(--sp-3); padding: var(--sp-5); }
+.skeleton-row {
+  height: 14px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--surface-2) 25%,
+              var(--surface-3) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-sweep 1.4s var(--ease) infinite;
+}
+.skeleton-row:nth-child(2) { width: 82%; }
+.skeleton-row:nth-child(3) { width: 64%; }
+@keyframes skeleton-sweep { from { background-position: 100% 0; }
+                            to { background-position: 0 0; } }
 .list-scroll { max-height: 470px; overflow-y: auto; }
 .list-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px;
              border-bottom: 1px solid var(--line); }

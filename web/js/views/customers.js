@@ -10,7 +10,14 @@ window.ViewCustomers = (function () {
     prospect: { label: "פוטנציאלי", tone: "accent" },
   };
 
-  const ui = { search: "", status: "all", scope: "all", sort: "ytd", dir: -1 };
+  const ui = { search: "", status: "all", scope: "all", sort: "ytd", dir: -1, limit: 0 };
+
+  /* כמה שורות מצוירות בבת אחת.
+     בטלפון כל לקוח הוא כרטיס בגובה כמה מאות פיקסלים, ומאה שמונים וארבעה
+     מהם הם עמוד באורך ארבעים אלף פיקסלים — דבר שאיש לא גולל, שמעכב כל
+     סינון, ושמחזיק בזיכרון מאות גרפים שלא ייראו. מצוירת מנה, והמשכה
+     נטענת בלחיצה. */
+  const PAGE = () => (window.innerWidth <= 1000 ? 25 : 60);
 
   const SCOPES = {
     all: { label: "הכול", test: () => true },
@@ -45,7 +52,7 @@ window.ViewCustomers = (function () {
 
   /** שורות הטבלה בלבד — מה שמתחלף בחיפוש ובסינון, בלי לגעת בשאר המסך. */
   function bodyRows(list, view, paths) {
-    return list.map((c) => {
+    return list.slice(0, ui.limit).map((c) => {
       const status = STATUS[c.profile.status] || STATUS.active;
       return `<tr class="row-link" data-no="${Fmt.escape(c.no)}">
         <td class="cell-main">
@@ -83,6 +90,7 @@ window.ViewCustomers = (function () {
 
   function render(root, ctx) {
     const view = Metrics.overview(ctx);
+    ui.limit = PAGE();
     const list = filtered(view);
     // מסלול חמש השנים לכל לקוח — הוא עונה על "האם הירידה השנה היא מגמה או
     // חודש חלש", וזו השאלה הראשונה שנשאלת מול טור שינוי אדום.
@@ -143,7 +151,8 @@ window.ViewCustomers = (function () {
             ${bodyRows(list, view, paths)}
           </tbody>
         </table>
-      </div>`,
+      </div>
+      <button class="act-more" id="cust-more" hidden></button>`,
     });
 
     /**
@@ -154,7 +163,8 @@ window.ViewCustomers = (function () {
      * הפוקוס ואת מיקום הסמן, והיה צריך להחזיר אותם ביד. עכשיו מתחלף רק מה
      * שבאמת השתנה, והשדה שבו מקלידים לא נוגעים בו בכלל.
      */
-    function repaint() {
+    function repaint({ reset = true } = {}) {
+      if (reset) ui.limit = PAGE();
       const next = filtered(view);
       root.querySelector("tbody").innerHTML = bodyRows(next, view, paths);
       root.querySelectorAll("[data-count]").forEach((node) => {
@@ -162,7 +172,14 @@ window.ViewCustomers = (function () {
           ? `${Fmt.number(next.length)} לקוחות · ${Fmt.money(Metrics.sum(next.map((c) => c.ytd)))}`
           : `${Fmt.number(next.length)} לקוחות`;
       });
+      const more = root.querySelector("#cust-more");
+      const left = next.length - ui.limit;
+      more.hidden = left <= 0;
+      more.textContent = left > 0
+        ? `עוד ${Fmt.number(Math.min(left, PAGE()))} מתוך ${Fmt.number(left)} שנותרו` : "";
     }
+
+    repaint({ reset: false });
 
     const search = root.querySelector("#cust-search");
     search.addEventListener("input", () => {
@@ -180,6 +197,10 @@ window.ViewCustomers = (function () {
       seg.querySelectorAll("[data-scope]").forEach((b) =>
         b.classList.toggle("is-active", b.dataset.scope === ui.scope));
       repaint();
+    });
+    root.querySelector("#cust-more").addEventListener("click", () => {
+      ui.limit += PAGE();
+      repaint({ reset: false });
     });
     root.querySelector("#cust-add").addEventListener("click", () => addCustomer());
     UI.on(root, "th.sortable", "click", (e) => {
