@@ -713,7 +713,10 @@ tfoot td {
   font-variant-numeric: tabular-nums;
 }
 
-.bar-row { display: grid; gap: 6px; padding: 9px 16px; cursor: pointer; }
+/* העמודה מוגבלת ל-minmax(0,1fr): בלעדיה שם ארוך קובע את רוחב המינימום של
+   השורה, והלוח כולו נגלל הצידה בטלפון. */
+.bar-row { display: grid; grid-template-columns: minmax(0, 1fr);
+           gap: 6px; padding: 9px 16px; cursor: pointer; }
 .bar-row:hover { background: var(--surface-2); }
 .bar-head { display: flex; align-items: baseline; gap: 10px; font-size: 12.5px; }
 .bar-head .grow { flex: 1; min-width: 0; }
@@ -1553,6 +1556,12 @@ kbd {
   .heat-row { grid-template-columns: 34px repeat(var(--heat-cols), minmax(0, 1fr)); gap: 2px; }
   .heat-cell { min-height: 30px; font-size: 9.5px; border-radius: 4px; }
   .heat-cell-label { font-size: 9.5px; }
+
+  /* שטח הנגיעה גדל בלי שהעיגול יגדל: אצבע אינה עכבר, ו-16 פיקסלים אינם יעד. */
+  .kpi-help { position: relative; }
+  .kpi-help::after { content: ""; position: absolute; inset: -9px; }
+  .check { min-height: 32px; }
+  .check input[type="checkbox"] { width: 18px; height: 18px; }
 
   /* --- סרגל תחתון --- */
   .tabbar {

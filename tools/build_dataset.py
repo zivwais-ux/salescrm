@@ -24,6 +24,7 @@ import pymupdf
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import parse_pdf  # noqa: E402
 from parse_pdf import parse  # noqa: E402
 import read_table  # noqa: E402
 
@@ -89,11 +90,16 @@ def apply_tables(tables, agents, parties, sales, control, months):
             sales[:] = [s for s in sales if not (s["y"] == year and s["m"] == month)]
         for row in rows:
             year, month = row["year"], row["month"]
+            # הייצוא מדפיס את אות הסניף אחרי כל שם, בדיוק כמו הדוח, והיא אינה
+            # חלק מהשם. בלי החיתוך כאן שם שמגיע מייצוא היה נראה אחרת מאותו שם
+            # שהגיע מה-PDF, ולקוח אחד היה נקרא בשני שמות.
+            name_of = parse_pdf.strip_branch
             if row.get("agent_no"):
-                agents[row["agent_no"]] = (year, row.get("agent_name") or row["agent_no"])
-            for no, name in ((row["customer_no"], row.get("customer_name")),
+                agents[row["agent_no"]] = (year, name_of(row.get("agent_name"))
+                                           or row["agent_no"])
+            for no, name in ((row["customer_no"], name_of(row.get("customer_name"))),
                              (row.get("payer_no") or row["customer_no"],
-                              row.get("payer_name"))):
+                              name_of(row.get("payer_name")))):
                 if no and name and year >= parties.get(no, (0, ""))[0]:
                     parties[no] = (year, name)
             sales.append({"c": row["customer_no"],

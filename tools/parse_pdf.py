@@ -164,13 +164,15 @@ def rtl_text(chars):
     return REVERSED_BRACKETS.sub(r"(\1)", text)
 
 
-def clean_name(text):
+def strip_branch(text):
     """Strip the branch marker the report appends to every name.
 
     It is printed as ``ב-``, ``-ב`` or ``(ב)`` depending on the row, always as a
-    standalone letter at one end of the name.
+    standalone letter at one end of the name. Split out from ``clean_name`` so
+    that a source which needs no glyph repair — a spreadsheet export, where the
+    text is already text — can drop the marker without the rest.
     """
-    text = text.strip()
+    text = str(text or "").strip()
     # The marker stands on its own, so it is only stripped when a space, a hyphen
     # or a bracket separates it: names like "תמי יהב" end in the same letter.
     text = re.sub(r"(?:(?<=\s)|(?<=-)|^)\(?\s*ב\s*\)?\s*$", "", text)
@@ -179,6 +181,12 @@ def clean_name(text):
     # On a latin name the marker ends up mid-string, since that line reads
     # left-to-right while the marker was printed at its right edge.
     text = re.sub(r"\s(?:-ב|ב-)\s", " ", text)
+    return re.sub(r"\s+", " ", text).strip(" -")
+
+
+def clean_name(text):
+    """A name as read out of the PDF: no branch marker, and glyphs unpacked."""
+    text = strip_branch(text)
     # The report packs glyphs tightly where the script changes; restore the space.
     text = re.sub(r"(?<=[\u05d0-\u05ea])(?=[0-9A-Za-z(])", " ", text)
     text = re.sub(r"(?<=[0-9A-Za-z)])(?=[\u05d0-\u05ea])", " ", text)
