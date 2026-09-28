@@ -133,6 +133,7 @@ window.ViewActivity = (function () {
       <section class="card composer no-mobile">
         <div class="composer-row">
           <input class="input composer-title" id="act-title" autocomplete="off"
+                 aria-label="מה צריך לעשות"
                  placeholder="מה צריך לעשות? למשל: לבדוק את הירידה בהזמנות">
           <button class="btn" id="act-party-pick">
             ${UI.icon("customers", 15)}<span class="ellipsis" style="max-width:150px">${

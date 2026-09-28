@@ -417,6 +417,7 @@ window.ViewEntry = (function () {
           <div class="drop-note hint">xlsx או csv · העמודות מזוהות לפי הכותרות
             שלהן, והחודש נקרא מתוך הטבלה</div>
           <input type="file" id="file-input" class="visually-hidden"
+                 aria-label="בחירת קובץ מהמחשב"
                  accept=".xlsx,.xlsm,.csv,.txt,.tsv">
         </div>
         <div class="drop-fallback hint">
@@ -434,7 +435,8 @@ window.ViewEntry = (function () {
           UI.icon("alert", 15)} ${Fmt.escape(ui.error)}</div>` : ""}
         <details class="drop-paste" ${isPhone() ? "open" : ""}>
           <summary>אפשר גם להדביק כאן</summary>
-          <textarea id="drop-paste-box" style="min-height:140px;font-family:inherit"
+          <textarea id="drop-paste-box" aria-label="הדבקת טבלה מאקסל"
+            style="min-height:140px;font-family:inherit"
             placeholder="מדביקים את הטבלה כולה, עם שורת הכותרות">${
             Fmt.escape(ui.paste)}</textarea>
           <div class="row-actions" style="margin-top:10px">

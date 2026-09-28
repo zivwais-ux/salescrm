@@ -18,7 +18,7 @@
   /* --- טקסט --- */
   --text:          oklch(0.235 0.019 266);
   --text-2:        oklch(0.446 0.017 266);
-  --muted:         oklch(0.582 0.016 266);
+  --muted:         oklch(0.545 0.016 266);
 
   /* --- מותג וסמנטיקה --- */
   --accent:        oklch(0.523 0.188 265);
@@ -1540,11 +1540,13 @@ kbd {
 }
 .year-pill.is-active .year-pill-label { color: var(--accent-text); font-weight: 600; }
 .year-pill-value {
-  font-size: 10.5px;
+  font-size: var(--fs-micro);
   color: var(--muted);
   direction: ltr;
   white-space: nowrap;
 }
+/* על המשטח המגוון של השנה הפעילה, אפור מאבד ניגודיות — הערך עובר לדיו שלה */
+.year-pill.is-active .year-pill-value { color: var(--accent-text); }
 
 /* ---------------------------------------------- עריכת חודשים בטלפון --- */
 .month-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }

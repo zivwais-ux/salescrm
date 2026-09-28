@@ -74,8 +74,8 @@ window.UI = (function () {
     }
     const dir = pct >= 0 ? "up" : "down";
     const arrow = pct >= 0
-      ? '<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5v-7M3 5.5 6 2.5l3 3"/></svg>'
-      : '<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5v7M3 6.5l3 3 3-3"/></svg>';
+      ? '<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9.5v-7M3 5.5 6 2.5l3 3"/></svg>'
+      : '<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.5v7M3 6.5l3 3 3-3"/></svg>';
     return `<span class="delta ${dir} ${size}">${arrow}${Fmt.percent(pct, 1)}</span>`;
   }
 

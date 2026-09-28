@@ -94,11 +94,13 @@ window.Charts = (function () {
   }
 
   function frame(host, height) {
+    // הגרף מוסתר מקוראי מסך במכוון: לכל גרף במערכת יש תאום טבלאי שנגיש
+    // בלחיצה, ושם הנתונים קריאים כערכים ולא כצורה.
     const svg = el("svg", {
       viewBox: `0 0 1000 ${height}`,
       class: "chart",
       preserveAspectRatio: "none",
-      role: "img",
+      "aria-hidden": "true",
     });
     svg.style.height = `${height}px`;
     host.querySelectorAll("svg, .legend").forEach((n) => n.remove());
