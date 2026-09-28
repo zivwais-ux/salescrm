@@ -26,16 +26,25 @@ window.App = (function () {
   ];
 
   const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => [...document.querySelectorAll(sel)];
   let openCustomerNo = null;
   let drawerTab = "overview";
 
-  /* ------------------------------------------------------------------ ניווט */
+  const reducedMotion = () =>
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ------------------------------------------------------------------ ניווט
+     כל מסך זוכר איפה היה. מי שגלל לתחתית רשימת הלקוחות, פתח כרטיס וחזר,
+     מצפה לחזור למקום שבו היה — לא לראש הרשימה. */
+  const scrollAt = new Map();
+
   function go(id) {
     if (!NAV.some((n) => n.id === id)) return;
+    if (id === ctx.view) return closeSidebar();
+    scrollAt.set(ctx.view, window.scrollY);
     ctx.view = id;
     closeSidebar();
-    render();
-    window.scrollTo({ top: 0 });
+    render({ transition: true, scroll: scrollAt.get(id) || 0 });
   }
 
   function counts() {
@@ -51,38 +60,67 @@ window.App = (function () {
   // הפעילים אינו התראה, ונקודה אדומה לידו רק מלמדת להתעלם ממנה.
   const ALERTS = new Set(["dashboard", "activity"]);
 
-  function renderSidebar() {
-    const n = counts();
-    $("#sidebar").innerHTML = `
+  /* ------------------------------------------------------------- המעטפת
+     סרגל הצד, הכותרת, סרגל ההקשר והסרגל התחתון נבנים פעם אחת בטעינה,
+     והמאזינים יושבים על המכל ולא על הכפתורים. מכאן והלאה מתעדכן רק מה
+     שבאמת השתנה — הפריט הפעיל, המונים, הכותרת.
+
+     זה מה שמסיר את תחושת ה"קפיצה": בנייה מחדש של המעטפת בכל ניווט הבהבה
+     את המסך, איבדה פוקוס, והשליכה את מיקום הגלילה. */
+  function buildSidebar() {
+    const side = $("#sidebar");
+    side.innerHTML = `
       <div class="brand">
-        <span class="wordmark">${Fmt.escape(Store.settings().name)}</span>
-        <span class="brand-sub">${Fmt.escape(Store.settings().branch)}</span>
+        <span class="wordmark" id="brand-name"></span>
+        <span class="brand-sub" id="brand-sub"></span>
       </div>
 
       ${NAV.map((item) => `
-        <button class="nav-item ${ctx.view === item.id ? "is-active" : ""}"
-                data-nav="${item.id}">
+        <button class="nav-item" data-nav="${item.id}">
           ${UI.icon(item.icon)}
           <span>${item.label}</span>
-          ${n[item.id] ? `<span class="nav-count">${Fmt.number(n[item.id])}</span>` : ""}
+          <span class="nav-count" hidden></span>
         </button>`).join("")}
 
       <div class="sidebar-foot">
         <div class="nav-label" style="padding-top:0">תצוגה</div>
         <div class="seg theme-seg" role="group" aria-label="בהיר או כהה">
           ${[["auto", "אוטומטי"], ["light", "יום"], ["dark", "לילה"]].map(([key, label]) => `
-            <button data-theme-set="${key}" class="${themePref() === key ? "is-active" : ""}"
-                    aria-pressed="${themePref() === key}">${label}</button>`).join("")}
+            <button data-theme-set="${key}">${label}</button>`).join("")}
         </div>
         <button class="nav-item" id="export-btn">
           ${UI.icon("download")}<span>ייצוא לאקסל</span>
         </button>
       </div>`;
 
-    UI.on($("#sidebar"), "[data-nav]", "click", (e) => go(e.currentTarget.dataset.nav));
-    UI.on($("#sidebar"), "[data-theme-set]", "click",
-      (e) => setTheme(e.currentTarget.dataset.themeSet));
-    $("#export-btn").addEventListener("click", exportExcel);
+    side.addEventListener("click", (e) => {
+      const nav = e.target.closest("[data-nav]");
+      if (nav) return go(nav.dataset.nav);
+      const theme = e.target.closest("[data-theme-set]");
+      if (theme) return setTheme(theme.dataset.themeSet);
+      if (e.target.closest("#export-btn")) exportExcel();
+    });
+  }
+
+  function syncSidebar() {
+    const n = counts();
+    const settings = Store.settings();
+    $("#brand-name").textContent = settings.name;
+    $("#brand-sub").textContent = settings.branch;
+
+    $$("#sidebar [data-nav]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.nav === ctx.view);
+      const count = btn.querySelector(".nav-count");
+      const value = n[btn.dataset.nav];
+      count.hidden = !value;
+      if (value) count.textContent = Fmt.number(value);
+    });
+
+    $$("#sidebar [data-theme-set]").forEach((btn) => {
+      const on = btn.dataset.themeSet === themePref();
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    });
   }
 
   /**
@@ -92,59 +130,65 @@ window.App = (function () {
    * בתוך תפריט צד שנסגר: בנייד זה ההבדל בין שתי נגיעות לחמש. עם חמש שנים
    * הבורר הוא טבעת אחת של כפתורים, ולא רשימה נפתחת שמסתירה את מה שיש בה.
    */
-  function renderCtxbar() {
+  // רשימת השנים והסוכנים משתנה רק כשהנתונים עצמם משתנים, ולכן הסרגל נבנה
+  // מחדש רק אז — ובכל שאר הפעמים רק הבחירה מתעדכנת.
+  let ctxSignature = "";
+
+  function syncCtxbar() {
     const bar = $("#ctxbar");
     const item = NAV.find((n) => n.id === ctx.view);
-    if (!item.period) {
-      bar.innerHTML = "";
-      bar.hidden = true;
-      return;
-    }
-    bar.hidden = false;
+    bar.hidden = !item.period;
+    if (!item.period) return;
+
     const years = Store.years();
     const agents = [{ no: "all", name: "כל הסוכנים" }]
       .concat(Store.state.agents.filter((a) => a.no));
+    const signature = `${years.join(",")}|${agents.map((a) => `${a.no}:${a.name}`).join(",")}`;
 
-    bar.innerHTML = `
-      <div class="seg year-seg" role="group" aria-label="שנה">
-        ${years.slice().reverse().map((y) => `
-          <button data-year="${y}" class="${y === ctx.year ? "is-active" : ""}"
-                  aria-pressed="${y === ctx.year}">${y}</button>`).join("")}
-      </div>
-      <label class="field agent-field">
-        <span class="no-mobile">סוכן</span>
-        <select class="select" id="agent-select">
-          ${agents.map((a) => `<option value="${Fmt.escape(a.no)}" ${
-            ctx.agent === a.no ? "selected" : ""}>${Fmt.escape(a.name)}</option>`).join("")}
-        </select>
-      </label>`;
+    if (signature !== ctxSignature) {
+      ctxSignature = signature;
+      bar.innerHTML = `
+        <div class="seg year-seg" role="group" aria-label="שנה">
+          ${years.slice().reverse().map((y) => `
+            <button data-year="${y}">${y}</button>`).join("")}
+        </div>
+        <label class="field agent-field">
+          <span class="no-mobile">סוכן</span>
+          <select class="select" id="agent-select">
+            ${agents.map((a) => `<option value="${Fmt.escape(a.no)}">${
+              Fmt.escape(a.name)}</option>`).join("")}
+          </select>
+        </label>`;
 
-    UI.on(bar, "[data-year]", "click", (e) => {
-      ctx.year = Number(e.currentTarget.dataset.year);
-      render();
+      bar.addEventListener("click", (e) => {
+        const year = e.target.closest("[data-year]");
+        if (!year) return;
+        ctx.year = Number(year.dataset.year);
+        render({ keepScroll: true });
+      });
+      bar.addEventListener("change", (e) => {
+        if (e.target.id !== "agent-select") return;
+        ctx.agent = e.target.value;
+        render({ keepScroll: true });
+      });
+    }
+
+    $$("#ctxbar [data-year]").forEach((btn) => {
+      const on = Number(btn.dataset.year) === ctx.year;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", String(on));
     });
-    $("#agent-select").addEventListener("change", (e) => {
-      ctx.agent = e.target.value;
-      render();
-    });
+    const select = $("#agent-select");
+    if (select && select.value !== ctx.agent) select.value = ctx.agent;
   }
 
-  function renderHeader() {
-    const item = NAV.find((n) => n.id === ctx.view);
-    const view = Metrics.overview(ctx);
-    const years = Store.years();
-    const sub = ctx.view === "trend"
-      ? `${years[0]}–${years[years.length - 1]}${
-          ctx.agent === "all" ? "" : ` · ${Store.agentName(ctx.agent)}`}`
-      : !NAV.find((n) => n.id === ctx.view).period ? ""
-      : `${ctx.year} · ינואר–${Fmt.month(view.lastMonth)}${
-          ctx.agent === "all" ? "" : ` · ${Store.agentName(ctx.agent)}`}`;
-
-    $("#topbar").innerHTML = `
-      <span class="wordmark only-mobile">${Fmt.escape(Store.settings().name)}</span>
+  function buildHeader() {
+    const top = $("#topbar");
+    top.innerHTML = `
+      <span class="wordmark only-mobile" id="top-brand"></span>
       <div class="page-head">
-        <div class="page-title">${Fmt.escape(item.title)}</div>
-        ${sub ? `<div class="page-sub">${Fmt.escape(sub)}</div>` : ""}
+        <div class="page-title" id="page-title"></div>
+        <div class="page-sub" id="page-sub" hidden></div>
       </div>
       <div class="topbar-tools">
         <button class="btn btn-icon only-mobile" id="open-palette-m" aria-label="חיפוש">
@@ -153,55 +197,114 @@ window.App = (function () {
           ${UI.icon("search", 15)}<span>חיפוש לקוח</span>
           <kbd>${navigator.platform.includes("Mac") ? "⌘" : "Ctrl"} K</kbd>
         </button>
-        ${Store.canUndo() ? `<button class="btn btn-icon" id="undo-btn"
-          aria-label="ביטול הפעולה האחרונה"
-          title="ביטול: ${Fmt.escape(Store.lastAction())}">${UI.icon("undo", 17)}</button>` : ""}
+        <button class="btn btn-icon" id="undo-btn" aria-label="ביטול הפעולה האחרונה" hidden>
+          ${UI.icon("undo", 17)}</button>
         <button class="btn btn-icon btn-primary" id="open-chat" aria-label="שאלה על הנתונים">
           ${UI.icon("chat", 17)}</button>
       </div>`;
 
-    ["#open-palette", "#open-palette-m"].forEach((sel) => {
-      const node = $(sel);
-      if (node) node.addEventListener("click", openPalette);
+    top.addEventListener("click", (e) => {
+      if (e.target.closest("#open-palette, #open-palette-m")) return openPalette();
+      if (e.target.closest("#undo-btn")) return undoLast();
+      if (e.target.closest("#open-chat")) toggleChat();
     });
+  }
+
+  function syncHeader() {
+    const item = NAV.find((n) => n.id === ctx.view);
+    const years = Store.years();
+    const sub = ctx.view === "trend"
+      ? `${years[0]}–${years[years.length - 1]}${
+          ctx.agent === "all" ? "" : ` · ${Store.agentName(ctx.agent)}`}`
+      : !item.period ? ""
+      : `${ctx.year} · ינואר–${Fmt.month(Metrics.overview(ctx).lastMonth)}${
+          ctx.agent === "all" ? "" : ` · ${Store.agentName(ctx.agent)}`}`;
+
+    $("#top-brand").textContent = Store.settings().name;
+    $("#page-title").textContent = item.title;
+    const subNode = $("#page-sub");
+    subNode.hidden = !sub;
+    subNode.textContent = sub;
+
     const undo = $("#undo-btn");
-    if (undo) undo.addEventListener("click", undoLast);
-    $("#open-chat").addEventListener("click", toggleChat);
+    undo.hidden = !Store.canUndo();
+    if (!undo.hidden) undo.title = `ביטול: ${Store.lastAction()}`;
   }
 
   /** סרגל תחתון בנייד: ארבעה יעדים בלבד, האחרון פותח את השאר. */
-  function renderTabbar() {
-    const n = counts();
-    const tabs = NAV.filter((item) => item.tab);
-    $("#tabbar").innerHTML = `
-      ${tabs.map((item) => `
-        <button class="tab-item ${ctx.view === item.id ? "is-active" : ""}"
-                data-nav="${item.id}">
+  function buildTabbar() {
+    const bar = $("#tabbar");
+    bar.innerHTML = `
+      ${NAV.filter((item) => item.tab).map((item) => `
+        <button class="tab-item" data-nav="${item.id}">
           <span class="tab-icon">${UI.icon(item.icon, 21)}${
-            ALERTS.has(item.id) && n[item.id] ? '<span class="tab-dot"></span>' : ""}</span>
+            ALERTS.has(item.id) ? '<span class="tab-dot" hidden></span>' : ""}</span>
           <span>${item.label}</span>
         </button>`).join("")}
-      <button class="tab-item ${NAV.some((i) => !i.tab && i.id === ctx.view) ? "is-active" : ""}"
-              id="tab-more">
+      <button class="tab-item" id="tab-more">
         <span class="tab-icon">${UI.icon("menu", 21)}</span>
         <span>עוד</span>
       </button>`;
 
-    UI.on($("#tabbar"), "[data-nav]", "click", (e) => go(e.currentTarget.dataset.nav));
-    $("#tab-more").addEventListener("click", openSidebar);
+    bar.addEventListener("click", (e) => {
+      const nav = e.target.closest("[data-nav]");
+      if (nav) return go(nav.dataset.nav);
+      if (e.target.closest("#tab-more")) openSidebar();
+    });
   }
 
-  function render() {
+  function syncTabbar() {
+    const n = counts();
+    $$("#tabbar [data-nav]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.nav === ctx.view);
+      const dot = btn.querySelector(".tab-dot");
+      if (dot) dot.hidden = !n[btn.dataset.nav];
+    });
+    $("#tab-more").classList.toggle("is-active",
+      NAV.some((i) => !i.tab && i.id === ctx.view));
+  }
+
+  let shellBuilt = false;
+
+  /**
+   * מצייר את המסך הפעיל ומסנכרן את המעטפת.
+   *
+   * `transition` — מעבר רך בין מסכים (ניווט בלבד; לא בעדכון נתונים).
+   * `scroll`     — לאן לגלול אחרי הציור.
+   * `keepScroll` — להישאר במקום; לשינוי שנה או סוכן, שבו התוכן מתחלף
+   *                מתחת לאותה נקודת מבט ואין סיבה לזרוק את הקורא למעלה.
+   */
+  function render({ transition = false, scroll = null, keepScroll = false } = {}) {
     const years = Store.years();
     if (!ctx.year || !years.includes(ctx.year)) ctx.year = years[years.length - 1];
-    renderSidebar();
-    renderHeader();
-    renderCtxbar();
-    renderTabbar();
-    const root = $("#view");
-    root.innerHTML = "";
-    NAV.find((n) => n.id === ctx.view).view().render(root, ctx);
-    if (openCustomerNo) renderCustomerCard(openCustomerNo);
+
+    if (!shellBuilt) {
+      buildSidebar();
+      buildHeader();
+      buildTabbar();
+      shellBuilt = true;
+    }
+    syncSidebar();
+    syncHeader();
+    syncCtxbar();
+    syncTabbar();
+
+    const at = keepScroll ? window.scrollY : scroll;
+    const paint = () => {
+      const root = $("#view");
+      root.innerHTML = "";
+      NAV.find((n) => n.id === ctx.view).view().render(root, ctx);
+      if (openCustomerNo) renderCustomerCard(openCustomerNo);
+      if (at !== null) window.scrollTo({ top: at });
+    };
+
+    // מעבר המסך מצויר על ידי הדפדפן עצמו, ולכן הוא חלק גם כשהמסך כבד.
+    // מי שביקש פחות תנועה מקבל החלפה מיידית.
+    if (transition && document.startViewTransition && !reducedMotion()) {
+      document.startViewTransition(paint);
+    } else {
+      paint();
+    }
   }
 
   /* ------------------------------------------------------------------ נושא
@@ -222,7 +325,7 @@ window.App = (function () {
   function setTheme(pref) {
     try { localStorage.setItem(cfg.themeKey, pref); } catch (err) { /* לא קריטי */ }
     applyTheme();
-    render();
+    render({ keepScroll: true });
     toast(pref === "auto" ? "התצוגה עוקבת אחרי המכשיר"
       : pref === "dark" ? "מצב לילה" : "מצב יום");
   }
@@ -876,19 +979,20 @@ window.App = (function () {
       const now = window.innerWidth <= 1000;
       if (now === phone) return;
       phone = now;
-      render();
+      render({ keepScroll: true });
     });
 
     // מצב "אוטומטי" ממשיך לעקוב אחרי המכשיר גם בלי רענון.
     media.addEventListener("change", () => {
       if (themePref() === "auto") {
         applyTheme();
-        render();
+        render({ keepScroll: true });
       }
     });
 
     // כל שינוי בנתונים מצייר מחדש את המסך הפעיל ואת כרטיס הלקוח הפתוח.
-    Store.onChange(render);
+    // שינוי נתונים אינו ניווט: הקורא נשאר במקום שבו היה.
+    Store.onChange(() => render({ keepScroll: true }));
     render();
 
     // דוח חדש שנכנס לנתונים ששמורים במכשיר — נאמר במפורש, אחרת המספרים

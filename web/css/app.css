@@ -1968,6 +1968,22 @@ kbd {
   .plan-actions .btn-lg { flex: 1; }
 }
 
+/* ------------------------------------------------------- מעבר בין מסכים --
+   רק התוכן מתחלף; המעטפת נשארת במקומה ואינה משתתפת במעבר, אחרת הניווט
+   עצמו היה "מהבהב" וזו בדיוק התחושה שבאנו להסיר. */
+@view-transition { navigation: none; }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur);
+  animation-timing-function: var(--ease);
+}
+::view-transition-old(root) { animation-name: view-out; }
+::view-transition-new(root) { animation-name: view-in; }
+
+@keyframes view-out { to { opacity: 0; } }
+@keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

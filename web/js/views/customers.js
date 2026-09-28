@@ -43,6 +43,44 @@ window.ViewCustomers = (function () {
     return `<th class="sortable ${cls}" data-sort="${key}">${label}${arrow}</th>`;
   }
 
+  /** שורות הטבלה בלבד — מה שמתחלף בחיפוש ובסינון, בלי לגעת בשאר המסך. */
+  function bodyRows(list, view, paths) {
+    return list.map((c) => {
+      const status = STATUS[c.profile.status] || STATUS.active;
+      return `<tr class="row-link" data-no="${Fmt.escape(c.no)}">
+        <td class="cell-main">
+          <div class="cell-party">
+            ${UI.avatar(c.name)}
+            <div>
+              <div class="cell-title ellipsis">${Fmt.escape(c.name)}${
+                c.isBucket ? ' <span class="badge warn">סל מרוכז</span>' : ""}</div>
+              <div class="cell-sub">${Fmt.escape(c.no)}${
+                c.payers.length > 1 ? ` · ${c.payers.length} משלמים` : ""}${
+                c.parent ? " · מספר חשבון נוסף בדוח" : ""}${
+                c.sites && c.sites.length
+                  ? ` · ${c.sites.length + 1} מספרי חשבון` : ""}</div>
+            </div>
+          </div>
+        </td>
+        <td class="num" data-label="${view.cmpLabel} ${view.year}"
+            style="font-weight:600">${Fmt.money(c.ytd)}</td>
+        <td class="num" data-label="${view.cmpLabel} ${view.priorYear}"
+            style="color:var(--muted)">${Fmt.money(c.priorYtd)}</td>
+        <td class="num" data-label="שינוי">${view.hasPrior
+          ? UI.delta(c.changePct) : '<span class="hint">—</span>'}</td>
+        <td class="num hide-mobile">${Charts.sparkline(c.months)}</td>
+        <td class="num hide-mobile">${Charts.sparkline(
+          paths.map.get(c.no) || [], { flat: true, width: 64 })}</td>
+        <td class="num" data-label="מכירה אחרונה">${
+          c.lastActive ? Fmt.monthShort(c.lastActive) : "—"}</td>
+        <td data-label="סטטוס"><span class="badge ${status.tone}">${
+          status.label}</span></td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="8">${
+      UI.empty("לא נמצאו לקוחות", "אפשר לנקות את החיפוש או לשנות את הסינון.", "search")
+    }</td></tr>`;
+  }
+
   function render(root, ctx) {
     const view = Metrics.overview(ctx);
     const list = filtered(view);
@@ -61,7 +99,7 @@ window.ViewCustomers = (function () {
                  value="${Fmt.escape(ui.search)}">
         </label>
         <div class="spacer row-actions">
-          <span class="hint no-mobile">${Fmt.number(list.length)} לקוחות · ${
+          <span class="hint no-mobile" data-count="full">${Fmt.number(list.length)} לקוחות · ${
             Fmt.money(shown)}</span>
           <button class="btn btn-primary" id="cust-add" aria-label="לקוח חדש">${
             UI.icon("plus", 15)}<span class="no-mobile">לקוח חדש</span></button>
@@ -83,7 +121,8 @@ window.ViewCustomers = (function () {
             ).join("")}
           </select>
         </label>
-        <span class="hint only-mobile spacer">${Fmt.number(list.length)} לקוחות</span>
+        <span class="hint only-mobile spacer" data-count="short">${
+          Fmt.number(list.length)} לקוחות</span>
       </div>
 
       <div class="table-wrap cards-wrap" style="max-height:calc(100vh - 190px)">
@@ -101,61 +140,46 @@ window.ViewCustomers = (function () {
             </tr>
           </thead>
           <tbody>
-            ${list.map((c) => {
-              const status = STATUS[c.profile.status] || STATUS.active;
-              return `<tr class="row-link" data-no="${Fmt.escape(c.no)}">
-                <td class="cell-main">
-                  <div class="cell-party">
-                    ${UI.avatar(c.name)}
-                    <div>
-                      <div class="cell-title ellipsis">${Fmt.escape(c.name)}${
-                        c.isBucket ? ' <span class="badge warn">סל מרוכז</span>' : ""}</div>
-                      <div class="cell-sub">${Fmt.escape(c.no)}${
-                        c.payers.length > 1 ? ` · ${c.payers.length} משלמים` : ""}${
-                        c.parent ? " · מספר חשבון נוסף בדוח" : ""}${
-                        c.sites && c.sites.length
-                          ? ` · ${c.sites.length + 1} מספרי חשבון` : ""}</div>
-                    </div>
-                  </div>
-                </td>
-                <td class="num" data-label="${view.cmpLabel} ${view.year}"
-                    style="font-weight:600">${Fmt.money(c.ytd)}</td>
-                <td class="num" data-label="${view.cmpLabel} ${view.priorYear}"
-                    style="color:var(--muted)">${Fmt.money(c.priorYtd)}</td>
-                <td class="num" data-label="שינוי">${view.hasPrior
-                  ? UI.delta(c.changePct) : '<span class="hint">—</span>'}</td>
-                <td class="num hide-mobile">${Charts.sparkline(c.months)}</td>
-                <td class="num hide-mobile">${Charts.sparkline(
-                  paths.map.get(c.no) || [], { flat: true, width: 64 })}</td>
-                <td class="num" data-label="מכירה אחרונה">${
-                  c.lastActive ? Fmt.monthShort(c.lastActive) : "—"}</td>
-                <td data-label="סטטוס"><span class="badge ${status.tone}">${
-                  status.label}</span></td>
-              </tr>`;
-            }).join("") || `<tr><td colspan="8">${
-              UI.empty("לא נמצאו לקוחות", "אפשר לנקות את החיפוש או לשנות את הסינון.", "search")
-            }</td></tr>`}
+            ${bodyRows(list, view, paths)}
           </tbody>
         </table>
       </div>`,
     });
 
+    /**
+     * מצייר מחדש את גוף הטבלה בלבד.
+     *
+     * חיפוש וסינון משנים אילו שורות מוצגות, ותו לא. ציור מחדש של כל המסך
+     * בכל הקשה — מה שהיה כאן — בנה 184 שורות עם שני גרפים כל אחת, איבד את
+     * הפוקוס ואת מיקום הסמן, והיה צריך להחזיר אותם ביד. עכשיו מתחלף רק מה
+     * שבאמת השתנה, והשדה שבו מקלידים לא נוגעים בו בכלל.
+     */
+    function repaint() {
+      const next = filtered(view);
+      root.querySelector("tbody").innerHTML = bodyRows(next, view, paths);
+      root.querySelectorAll("[data-count]").forEach((node) => {
+        node.textContent = node.dataset.count === "full"
+          ? `${Fmt.number(next.length)} לקוחות · ${Fmt.money(Metrics.sum(next.map((c) => c.ytd)))}`
+          : `${Fmt.number(next.length)} לקוחות`;
+      });
+    }
+
     const search = root.querySelector("#cust-search");
     search.addEventListener("input", () => {
       ui.search = search.value;
-      render(root, ctx);
-      const box = root.querySelector("#cust-search");
-      box.focus();
-      box.setSelectionRange(box.value.length, box.value.length);
+      repaint();
     });
 
     root.querySelector("#cust-status").addEventListener("change", (e) => {
       ui.status = e.target.value;
-      render(root, ctx);
+      repaint();
     });
     UI.on(root, "[data-scope]", "click", (e) => {
+      const seg = e.currentTarget.parentElement;
       ui.scope = e.currentTarget.dataset.scope;
-      render(root, ctx);
+      seg.querySelectorAll("[data-scope]").forEach((b) =>
+        b.classList.toggle("is-active", b.dataset.scope === ui.scope));
+      repaint();
     });
     root.querySelector("#cust-add").addEventListener("click", () => addCustomer());
     UI.on(root, "th.sortable", "click", (e) => {
@@ -164,7 +188,11 @@ window.ViewCustomers = (function () {
       ui.sort = key;
       render(root, ctx);
     });
-    UI.on(root, "tr[data-no]", "click", (e) => App.openCustomer(e.currentTarget.dataset.no));
+    // האזנה על המכל: השורות מתחלפות, המאזין נשאר.
+    root.querySelector("tbody").addEventListener("click", (e) => {
+      const row = e.target.closest("tr[data-no]");
+      if (row) App.openCustomer(row.dataset.no);
+    });
   }
 
   function addCustomer() {
