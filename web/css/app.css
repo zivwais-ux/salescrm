@@ -492,6 +492,12 @@ svg { display: block; }
   box-shadow: var(--shadow-sm);
 }
 
+/* מפריד בתוך בורר מקטעים: שתי קבוצות באותו פס, כשהראשונה היא הדרך
+   המרכזית והשאר חלופות. */
+.seg-div { width: 1px; align-self: stretch; margin: var(--sp-1) var(--sp-1);
+           background: var(--line-strong); flex: none; }
+.seg button svg { margin-inline-end: 2px; }
+
 label.stacked { display: grid; gap: 5px; }
 label.stacked > span { font-size: 12px; font-weight: 500; color: var(--text-2); }
 label.stacked textarea {

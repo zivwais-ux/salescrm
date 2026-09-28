@@ -191,12 +191,39 @@ window.Importer = (function () {
     const months = [...byMonth.values()].sort((a, b) => a.year - b.year || a.month - b.month)
       .map((entry) => {
         const current = Store.sales().filter((s) => s.y === entry.year && s.m === entry.month);
+
+        /* מה ישתנה בפועל, לקוח אחר לקוח.
+           סכום החודש לבדו אינו מספיק כדי לאשר החלפה: הוא יכול להיות זהה
+           כמעט לגמרי ובכל זאת להזיז עשרות אלפים בין שני לקוחות. מי שמאשר
+           צריך לראות את השורות שזזות, לא רק את הסך. */
+        const now = new Map();
+        const was = new Map();
+        const names = new Map();
+        entry.rows.forEach((r) => {
+          now.set(r.c, Math.round(((now.get(r.c) || 0) + r.a) * 100) / 100);
+          if (r.name) names.set(r.c, r.name);
+        });
+        current.forEach((s) => {
+          was.set(s.c, Math.round(((was.get(s.c) || 0) + s.a) * 100) / 100);
+        });
+        const changes = [...new Set([...now.keys(), ...was.keys()])]
+          .map((no) => {
+            const before = was.get(no) || 0;
+            const after = now.get(no) || 0;
+            return { no, before, after, delta: Math.round((after - before) * 100) / 100,
+                     name: (Store.party(no) || {}).name || names.get(no) || no,
+                     gone: !now.has(no), fresh: !was.has(no) };
+          })
+          .filter((c) => Math.abs(c.delta) > 0.005)
+          .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
         return {
           ...entry,
           total: Metrics.sum(entry.rows.map((r) => r.a)),
           currentTotal: Metrics.sum(current.map((s) => s.a)),
           currentRows: current.length,
           customers: new Set(entry.rows.map((r) => r.c)).size,
+          changes,
         };
       });
 

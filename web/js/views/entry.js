@@ -445,6 +445,40 @@ window.ViewEntry = (function () {
     });
   }
 
+  /**
+   * מה יזוז בפועל, לקוח אחר לקוח.
+   *
+   * "933,905 במקום 387,322" אומר שהחודש גדל, אבל לא אומר אצל מי. מי שמאשר
+   * החלפה של חודש שלם רוצה לראות את השורות שזזות — ובמיוחד את מי שהיה ונעלם
+   * מהקובץ, כי זו הטעות היקרה ביותר שאפשר לעשות כאן בלי לשים לב.
+   */
+  function changeBlock(planned) {
+    const rows = planned.months.flatMap((m) => m.changes.map((c) => ({ ...c, month: m })));
+    if (!rows.length) return "";
+    const gone = rows.filter((c) => c.gone);
+    const top = rows.slice(0, 10);
+
+    return `<div class="plan-block">
+      <div class="plan-block-head">מה ישתנה · ${Fmt.number(rows.length)} לקוחות${
+        gone.length ? ` · ${Fmt.number(gone.length)} היו ברשום ואינם בקובץ` : ""}</div>
+      <div class="list">
+        ${top.map((c) => `
+          <div class="list-row" data-customer="${Fmt.escape(c.no)}">
+            ${UI.avatar(c.name)}
+            <div class="grow">
+              <div class="list-title ellipsis">${Fmt.escape(c.name)}</div>
+              <div class="list-sub">${c.fresh ? "לקוח חדש בחודש הזה"
+                : c.gone ? "היה רשום ואינו מופיע בקובץ"
+                : `${Fmt.money(c.before)} ← ${Fmt.money(c.after)}`}</div>
+            </div>
+            <div class="list-value ${c.delta >= 0 ? "up" : "down"}">${Fmt.signed(c.delta)}</div>
+          </div>`).join("")}
+      </div>
+      ${rows.length > top.length ? `<div class="hint" style="padding:10px 4px 0">
+        ועוד ${Fmt.number(rows.length - top.length)} לקוחות בשינוי קטן יותר</div>` : ""}
+    </div>`;
+  }
+
   /** מה ייכנס, ובמה זה שונה ממה שרשום היום — לפני שמאשרים. */
   function planCard() {
     const p = ui.plan;
@@ -496,6 +530,7 @@ window.ViewEntry = (function () {
         ${wipes.length ? `<div class="notice" style="margin:0 16px 14px">
           ${UI.icon("alert", 15)} חודש שמגיע בקובץ מוחלף במלואו — הקובץ הוא התמונה
           המלאה שלו. אפשר לבטל בלחיצה אחת אחרי העדכון.</div>` : ""}
+        ${changeBlock(p)}
         ${p.parties.length ? `<div class="plan-block">
           <div class="plan-block-head">${Fmt.number(p.parties.length)} לקוחות חדשים ייפתחו</div>
           <div class="chips">${names(p.parties)}</div>
@@ -690,16 +725,6 @@ window.ViewEntry = (function () {
 
     const list = ui.mode === "month" ? candidates() : [];
     const waiting = pending();
-    const added = waiting.reduce((sum, r) => sum + (r.value - r.current), 0);
-    const base = ui.mode === "customer"
-      ? Metrics.sum(Store.sales()
-          .filter((s) => s.c === ui.customer && s.y === ui.year).map((s) => s.a))
-      : Metrics.sum(Store.sales()
-          .filter((s) => s.y === ui.year && s.m === ui.month).map((s) => s.a));
-    const monthTotal = base + added;
-    const lastYearTotal = Metrics.sum(Store.sales()
-      .filter((s) => s.y === ui.year - 1 && s.m === ui.month).map((s) => s.a));
-    const changePct = Metrics.change(monthTotal, lastYearTotal);
 
     root.innerHTML = `
       <section class="card">
@@ -714,8 +739,10 @@ window.ViewEntry = (function () {
           </div>
           <div class="spacer">
             <div class="seg">
-              ${[["file", "מקובץ"], ["month", "לפי חודש"], ["customer", "לפי לקוח"],
-                 ["targets", "יעדים"]]
+              <button data-mode="file" class="${ui.mode === "file" ? "is-active" : ""}">
+                ${UI.icon("upload", 14)} מקובץ</button>
+              <span class="seg-div" aria-hidden="true"></span>
+              ${[["month", "לפי חודש"], ["customer", "לפי לקוח"], ["targets", "יעדים"]]
                 .map(([id, label]) => `<button data-mode="${id}" class="${
                   ui.mode === id ? "is-active" : ""}">${label}</button>`).join("")}
             </div>
@@ -760,15 +787,7 @@ window.ViewEntry = (function () {
 
       ${ui.mode === "file" ? "" : `
       <div class="save-bar ${waiting.length ? "is-on" : ""}">
-        <div class="save-facts">
-          <b>${Fmt.number(waiting.length)}</b> שורות ממתינות לשמירה
-          <span class="hint">· ${ui.mode === "targets" ? Fmt.signed(added)
-            : `${Fmt.signed(added)} · ${ui.mode === "customer"
-              ? `${ui.year} יסתכם ב-${Fmt.money(monthTotal)}`
-              : `${Fmt.month(ui.month)} יסתכם ב-${Fmt.money(monthTotal)}${lastYearTotal
-                ? ` (${Fmt.percent(changePct, 1)} מול ${Fmt.money(lastYearTotal)} אשתקד)`
-                : ""}`}`}</span>
-        </div>
+        <div class="save-facts">${barFacts(waiting)}</div>
         <div class="row-actions">
           <button class="btn" id="entry-clear">ניקוי</button>
           <button class="btn btn-primary" id="entry-save">${UI.icon("check", 15)} ${
@@ -849,13 +868,17 @@ window.ViewEntry = (function () {
       setDraft(e.target.dataset.no, e.target.value);
       paintBar(root);
     });
+    // ניווט בעמודת מספרים הוא אנכי: חצים למעלה ולמטה, Enter קדימה,
+    // Shift+Enter אחורה. מי שמקליד ארבעים שורות לא אמור לגעת בעכבר.
     UI.on(root, "[data-no]", "keydown", (e) => {
-      if (e.key !== "Enter") return;
+      const step = e.key === "ArrowDown" || (e.key === "Enter" && !e.shiftKey) ? 1
+        : e.key === "ArrowUp" || (e.key === "Enter" && e.shiftKey) ? -1 : 0;
+      if (!step) return;
       e.preventDefault();
       const fields = [...root.querySelectorAll("[data-no]")];
-      const next = fields[fields.indexOf(e.target) + 1];
+      const next = fields[fields.indexOf(e.target) + step];
       if (next) next.focus();
-      else root.querySelector("#entry-save").focus();
+      else if (step > 0) root.querySelector("#entry-save").focus();
     });
     // ביציאה מהשדה המספר מוצג מסודר, וחשבון שהוקלד מוצג כתוצאה שלו.
     UI.on(root, "[data-no]", "blur", (e) => {
@@ -900,15 +923,43 @@ window.ViewEntry = (function () {
   }
 
   /** מרענן רק את סרגל השמירה, כדי שההקלדה לא תיקטע בציור מחדש. */
+  /**
+   * מה בדיוק ממתין לשמירה.
+   *
+   * לא רק "כמה שורות": כמה מהן חדשות, כמה משנות מספר קיים, ומה החודש יסתכם
+   * בו אם שומרים. זה מה שמאפשר לזהות טעות הקלדה לפני שהיא נשמרת, ולא אחריה.
+   */
+  function barFacts(waiting) {
+    const added = waiting.reduce((sum, r) => sum + (r.value - r.current), 0);
+    const fresh = waiting.filter((r) => !r.current).length;
+    const edited = waiting.length - fresh;
+    const base = ui.mode === "customer"
+      ? Metrics.sum(Store.sales()
+          .filter((s) => s.c === ui.customer && s.y === ui.year).map((s) => s.a))
+      : Metrics.sum(Store.sales()
+          .filter((s) => s.y === ui.year && s.m === ui.month).map((s) => s.a));
+    const total = base + added;
+    const lastYear = Metrics.sum(Store.sales()
+      .filter((s) => s.y === ui.year - 1 && s.m === ui.month).map((s) => s.a));
+
+    const parts = [];
+    if (fresh) parts.push(`${Fmt.number(fresh)} חדשות`);
+    if (edited) parts.push(`${Fmt.number(edited)} מתוקנות`);
+
+    return `<b>${Fmt.number(waiting.length)}</b> שורות ממתינות לשמירה
+      <span class="hint">${parts.length ? `· ${parts.join(" · ")} ` : ""}· ${
+        Fmt.signed(added)}${ui.mode === "targets" ? ""
+        : ` · ${ui.mode === "customer" ? ui.year : Fmt.month(ui.month)} יסתכם ב-${
+            Fmt.money(total)}${lastYear && ui.mode !== "customer"
+          ? ` (${Fmt.percent(Metrics.change(total, lastYear), 1)} מול אשתקד)` : ""}`}</span>`;
+  }
+
   function paintBar(root) {
     const bar = root.querySelector(".save-bar");
     if (!bar) return;
     const waiting = pending();
-    const added = waiting.reduce((sum, r) => sum + (r.value - r.current), 0);
     bar.classList.toggle("is-on", waiting.length > 0);
-    bar.querySelector(".save-facts").innerHTML = `
-      <b>${Fmt.number(waiting.length)}</b> שורות ממתינות לשמירה
-      <span class="hint">· ${Fmt.signed(added)}</span>`;
+    bar.querySelector(".save-facts").innerHTML = barFacts(waiting);
   }
 
   function save(root, ctx) {
