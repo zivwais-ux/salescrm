@@ -25,12 +25,13 @@ import pymupdf
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 from parse_pdf import parse  # noqa: E402
+import read_table  # noqa: E402
 
 DATA_DIR = os.path.join(ROOT, "web", "data")
 PERIOD_RE = re.compile(r"(\d{2})/(\d{2})/(\d{2,4})")
 # Raised whenever the seed's contents change, so a browser holding the previous
 # seed takes the new one in instead of staying on yesterday's picture.
-SEED_VERSION = 3
+SEED_VERSION = 4
 
 
 def report_year(path):
@@ -53,16 +54,65 @@ def report_year(path):
 
 
 def sources(args):
+    """The PDF reports by year, and the monthly table exports, kept apart.
+
+    A PDF covers a whole year; a monthly export (xlsx/csv) covers the months
+    inside it and replaces exactly those — that is what a fresh export of a
+    month is for.
+    """
     paths = []
     for arg in args:
-        paths += sorted(glob.glob(os.path.join(arg, "*.pdf"))) if os.path.isdir(arg) else [arg]
-    found = {}
+        if os.path.isdir(arg):
+            for ext in ("*.pdf", "*.xlsx", "*.xlsm", "*.csv"):
+                paths += sorted(glob.glob(os.path.join(arg, ext)))
+        else:
+            paths.append(arg)
+    found, tables = {}, []
     for path in paths:
+        if not path.lower().endswith(".pdf"):
+            tables.append(path)
+            continue
         year = report_year(path)
         if year in found:
             raise SystemExit(f"two reports cover {year}: {found[year]} and {path}")
         found[year] = path
-    return found
+    return found, tables
+
+
+def apply_tables(tables, agents, parties, sales, control, months):
+    """Let each monthly export replace the months it covers."""
+    replaced = {}
+    for path in tables:
+        rows = read_table.read(path)
+        covered = sorted({(r["year"], r["month"]) for r in rows})
+        for year, month in covered:
+            sales[:] = [s for s in sales if not (s["y"] == year and s["m"] == month)]
+        for row in rows:
+            year, month = row["year"], row["month"]
+            if row.get("agent_no"):
+                agents[row["agent_no"]] = (year, row.get("agent_name") or row["agent_no"])
+            for no, name in ((row["customer_no"], row.get("customer_name")),
+                             (row.get("payer_no") or row["customer_no"],
+                              row.get("payer_name"))):
+                if no and name and year >= parties.get(no, (0, ""))[0]:
+                    parties[no] = (year, name)
+            sales.append({"c": row["customer_no"],
+                          "p": row.get("payer_no") or row["customer_no"],
+                          "y": year, "m": month, "a": round(row["amount"], 2),
+                          "agent": row.get("agent_no", ""),
+                          "cur": row.get("currency") or "ש\'ח"})
+        for year, month in covered:
+            total = round(sum(s["a"] for s in sales
+                              if s["y"] == year and s["m"] == month), 2)
+            line = control.setdefault(str(year), {"total": 0, "months": {}})
+            line.setdefault("months", {})[str(month)] = total
+            line["total"] = round(sum(line["months"].values()), 2)
+            # מקור החודש נשמר, כדי שמסך ההצלבה לא יטען שהדוח המודפס אמר אותו.
+            # שם הקובץ עצמו אינו נשמר: הוא מגיע מהעלאה ואין בו מידע.
+            line.setdefault("from_file", {})[str(month)] = "ייצוא חודשי מה-ERP"
+            months[str(year)] = max(months.get(str(year), 0), month)
+            replaced[(year, month)] = total
+    return replaced
 
 
 def from_pdfs(found):
@@ -115,31 +165,39 @@ def from_existing(keep_years):
     return agents, parties, sales, control, months
 
 
-def newest_names(*books):
+def newest_names_pairs(*books):
     """Merge {no: (year, name)} books, keeping the name from the latest report."""
     out = {}
     for book in books:
         for no, (year, name) in book.items():
             if year >= out.get(no, (0, ""))[0]:
                 out[no] = (year, name)
-    return {no: name for no, (_, name) in out.items()}
+    return out
 
 
 def main():
     if len(sys.argv) < 2:
         raise SystemExit(__doc__.strip())
-    found = sources(sys.argv[1:])
+    found, tables = sources(sys.argv[1:])
     agents, parties, sales, control, months = from_pdfs(found)
 
     existing = json.load(open(os.path.join(DATA_DIR, "dataset.json"), encoding="utf-8")) \
         if os.path.exists(os.path.join(DATA_DIR, "dataset.json")) else {"years": []}
     keep = [y for y in existing.get("years", []) if y not in found]
     old_agents, old_parties, old_sales, old_control, old_months = from_existing(keep)
-    agents = newest_names(old_agents, agents)
-    parties = newest_names(old_parties, parties)
+    agents = newest_names_pairs(old_agents, agents)
+    parties = newest_names_pairs(old_parties, parties)
     sales += old_sales
     control = {**old_control, **control}
     months = {**old_months, **months}
+
+    # ההחלפה מקובץ היא הדבר האחרון: היא מוחקת את החודש שהיא מכסה מכל המקורות
+    # — גם מהדוח וגם ממה שכבר היה במאגר — ומכניסה את מה שבקובץ במקומו.
+    replaced = apply_tables(tables, agents, parties, sales, control, months)
+    agents = {no: name for no, name in
+              ((k, v[1] if isinstance(v, tuple) else v) for k, v in agents.items())}
+    parties = {no: name for no, name in
+               ((k, v[1] if isinstance(v, tuple) else v) for k, v in parties.items())}
 
     years = sorted({s["y"] for s in sales})
     # Compact encoding: parties and agents are listed once, and every sale refers
@@ -189,6 +247,8 @@ def main():
         mark = "=" if printed and abs(total - printed) < 0.005 else "?"
         source = os.path.basename(found[year]) if year in found else "כבר במאגר"
         print(f"{year}: {total:>16,.2f} {mark} {printed:>16,.2f}   {source}")
+    for (year, month), total in sorted(replaced.items()):
+        print(f"   חודש שהוחלף מקובץ: {month}/{year} = {total:,.2f}")
     print(f"parties={len(parties)} agents={len(agent_list)} sales={len(sales)}")
 
 

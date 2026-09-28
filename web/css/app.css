@@ -1661,6 +1661,11 @@ kbd {
   .view > .sec-charts { order: 4; }
   .view > #sec-tasks { order: 5; }
   .card-head { padding: 13px 14px; }
+  /* בטלפון כותרת ובורר לא נכנסים בשורה אחת, והכותרת נדחסת לעמודה צרה. */
+  .card-head:has(.spacer .seg) { flex-wrap: wrap; }
+  .card-head:has(.spacer .seg) > .spacer { margin-inline-start: 0; width: 100%; }
+  .card-head:has(.spacer .seg) .seg { width: 100%; }
+  .card-head:has(.spacer .seg) .seg button { flex: 1; }
   .card-body { padding: 14px; }
   .toolbar { padding: 12px 14px; }
 
@@ -1729,6 +1734,109 @@ kbd {
   .drawer-body { padding: 14px 14px 40px; }
   .div-row { grid-template-columns: minmax(0, 1fr) minmax(80px, 1fr) auto; font-size: 12px; }
   .div-value { min-width: 74px; }
+}
+
+/* ------------------------------------------------------ עדכון מקובץ --
+   אזור הגרירה הוא הדבר הגדול במסך, כי זו הפעולה. כל השאר — הדבקה, בחירת
+   קובץ, בחירת חודש גיבוי — נספח לו ולא חלופה שצריך להחליט עליה. */
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 20px 30px;
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  text-align: center;
+  transition: border-color .15s, background .15s;
+}
+.dropzone.is-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.dropzone.is-over .drop-icon { color: var(--accent); }
+.drop-icon { color: var(--muted); line-height: 0; }
+.drop-title { font-size: 16px; font-weight: 650; }
+.drop-sub { color: var(--muted); font-size: 13px; }
+.drop-actions { margin-top: 6px; }
+.drop-note { max-width: 420px; font-size: 12px; }
+.drop-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12px;
+}
+.select-sm { height: 28px; padding: 0 7px; font-size: 12px; border-radius: var(--r-sm); }
+.drop-paste { margin-top: 14px; }
+.drop-paste > summary {
+  cursor: pointer;
+  color: var(--accent-text);
+  font-size: 13px;
+  padding: 6px 2px;
+}
+.drop-paste > textarea { width: 100%; margin-top: 8px; }
+.entry-period.is-fallback { font-size: 12.5px; }
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.notice.down { background: var(--down-soft); border-color: var(--down); color: var(--down); }
+.notice.down svg { color: var(--down); }
+
+/* התוכנית שלפני האישור: העובדות למעלה, החודשים באמצע, האישור למטה */
+.plan-head {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 2px;
+  padding: 4px 16px 14px;
+}
+.plan-fact { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.plan-fact b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.plan-block { padding: 12px 16px; border-top: 1px solid var(--line); }
+.plan-block-head { font-size: 12.5px; font-weight: 600; margin-bottom: 8px; }
+.plan-block-head.down { color: var(--down); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 148px; overflow: auto; }
+.chip {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--muted);
+}
+.plan-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.btn-lg { height: 42px; padding: 0 20px; font-size: 14.5px; }
+
+@media (max-width: 560px) {
+  .dropzone { padding: 26px 14px 22px; }
+  .drop-title { font-size: 15px; }
+  .plan-actions .btn-lg { flex: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

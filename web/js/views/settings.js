@@ -30,6 +30,14 @@ window.ViewSettings = (function () {
                drift: Math.round((liveTotal - beyond - control.total) * 100) / 100 };
     };
 
+    /** מאין הגיעו התנועות של חודש: מהדוח, מקובץ שיובא, או מהקלדה. */
+    const sourceOf = (year, month) => {
+      const kinds = new Set(Store.sales()
+        .filter((s) => s.y === year && s.m === month).map((s) => s.source || "erp"));
+      if (!kinds.size) return "";
+      return kinds.size === 1 ? [...kinds][0] : "mixed";
+    };
+
     const all = years.map(state).filter(Boolean);
     const current = all.find((row) => row.year === ui.year) || all[0];
     if (!current) return "";
@@ -53,24 +61,31 @@ window.ViewSettings = (function () {
       body: `<div class="table-wrap" style="max-height:420px">
         <table>
           <thead><tr>
-            <th>חודש</th><th class="num">בדוח</th>
+            <th>חודש</th><th class="num">בדוח או בייצוא</th>
             <th class="num">במערכת</th><th class="num">הפרש</th>
           </tr></thead>
           <tbody>
             ${months.map((m) => {
               const printed = current.control.months[String(m)];
               const actual = current.live[m - 1];
+              // חודש שהגיע מייצוא ולא מהדוח המודפס נאמר ככזה, כדי שהעמודה
+              // "בדוח" לא תטען משהו שלא הודפס מעולם.
+              const fromFile = (current.control.from_file || {})[String(m)];
+              const source = sourceOf(current.year, m);
+              const mark = fromFile || source === "import"
+                ? ` <span class="badge accent">מקובץ</span>` : "";
               if (printed === undefined) {
                 return `<tr>
-                  <td>${Fmt.month(m)}</td>
+                  <td>${Fmt.month(m)}${mark}</td>
                   <td class="num" style="color:var(--muted)">—</td>
                   <td class="num">${Fmt.moneyExact(actual)}</td>
-                  <td class="num"><span class="badge accent">הוזן ידנית</span></td>
+                  <td class="num"><span class="badge accent">${source === "import"
+                    ? "יובא מקובץ" : "הוזן ידנית"}</span></td>
                 </tr>`;
               }
               const diff = Math.round((actual - printed) * 100) / 100;
               return `<tr>
-                <td>${Fmt.month(m)}</td>
+                <td>${Fmt.month(m)}${mark}</td>
                 <td class="num" style="color:var(--muted)">${Fmt.moneyExact(printed)}</td>
                 <td class="num">${Fmt.moneyExact(actual)}</td>
                 <td class="num">${diff

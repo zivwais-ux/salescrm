@@ -7,6 +7,10 @@
    שדה ריק. הכול נשמר בפעולה אחת, ומאותו רגע החודש הוא חלק מהמערכת: התקופה
    מתרחבת, ההשוואות כוללות אותו, והוא יוצא לאקסל ככל חודש אחר.
 
+   הדרך הקצרה ביותר היא "מקובץ": מייצאים את החודש מה-ERP, גוררים את הקובץ
+   פנימה או מדביקים את הטבלה, ורואים בדיוק מה ייכנס לפני שמאשרים. אין מה
+   להתאים ידנית — העמודות מזוהות לפי הכותרות שלהן והחודש נקרא מתוך הטבלה.
+
    שני דברים שנשמרים כאן בקפדנות:
      • מה שהוקלד מסומן כידני לעד, כדי שמסך הנתונים יוכל להראות במה המערכת
        כבר שונה מהדוח המקורי.
@@ -15,9 +19,10 @@
    ========================================================================== */
 window.ViewEntry = (function () {
   const ui = {
-    // שלוש דרכים להזין את אותם נתונים, לפי מה שיש ביד: חודש שלם של לקוחות,
-    // לקוח אחד לאורך שנה, או יעדי השנה.
-    mode: "month",
+    // ארבע דרכים להזין את אותם נתונים, לפי מה שיש ביד: קובץ או טבלה שהודבקה,
+    // חודש שלם של לקוחות, לקוח אחד לאורך שנה, או יעדי השנה. הקובץ ראשון כי
+    // הוא הדרך שאינה דורשת הקלדה בכלל.
+    mode: "file",
     customer: null,
     tab: "list",
     year: null,
@@ -25,12 +30,18 @@ window.ViewEntry = (function () {
     search: "",
     scope: "likely",
     paste: "",
+    // התוכנית שנקראה מקובץ או מהדבקה, לפני שאושרה.
+    plan: null,
+    planFrom: "",
+    reading: false,
+    error: "",
     // טיוטה לכל חודש בנפרד, כדי שמעבר בין חודשים לא ימחק מה שהוקלד.
     drafts: new Map(),
   };
 
   // טיוטה נפרדת לכל מה שנערך: חודש, לקוח-בשנה, או יעדי שנה.
-  const key = () => (ui.mode === "customer" ? `c${ui.customer}|${ui.year}`
+  const key = () => (ui.mode === "file" ? "file"
+    : ui.mode === "customer" ? `c${ui.customer}|${ui.year}`
     : ui.mode === "targets" ? `t|${ui.year}`
     : `${ui.year}|${ui.month}`);
   const DRAFT_KEY = "beny_entry_draft_v1";
@@ -161,15 +172,44 @@ window.ViewEntry = (function () {
       return `הזנה לפי לקוח · ${ui.customer ? Fmt.escape(Store.partyName(ui.customer))
         : "בחירת לקוח"} · ${ui.year}`;
     }
+    if (ui.mode === "file") return "עדכון מקובץ";
     if (ui.mode === "targets") return `יעדים שנתיים · ${ui.year}`;
     return `הזנת מכירות · ${Fmt.month(ui.month)} ${ui.year}`;
   }
 
   /* ------------------------------------------------------------------ ציור */
+  function monthStrip() {
+    return `<div class="seg month-seg" role="group" aria-label="חודש">
+      ${Fmt.SHORT.map((label, i) => {
+        const month = i + 1;
+        const has = Store.sales().some((s) => s.y === ui.year && s.m === month && s.a);
+        const open = (ui.drafts.get(`${ui.year}|${month}`) || new Map()).size > 0;
+        return `<button data-month="${month}" class="${month === ui.month ? "is-active" : ""}"
+                        title="${Fmt.month(month)}${has ? " · יש נתונים" : ""}${
+                          open ? " · טיוטה שלא נשמרה" : ""}">
+          ${label}${has || open
+            ? `<i class="month-dot ${open ? "is-draft" : ""}"></i>` : ""}</button>`;
+      }).join("")}
+    </div>`;
+  }
+
   function periodBar() {
     const years = Store.years();
     const next = years[years.length - 1] + 1;
     const options = [...years, next];
+    const yearField = `<label class="field">
+        <span>שנה</span>
+        <select class="select" id="entry-year">
+          ${options.map((y) => `<option ${y === ui.year ? "selected" : ""}>${y}</option>`)
+            .join("")}
+        </select>
+      </label>`;
+
+    // בקובץ החודש נקרא מתוך הטבלה עצמה, ולכן אין כאן מה לבחור. רשת הביטחון
+    // לטבלה בלי עמודת חודש יושבת ליד אזור הגרירה, בשורה קטנה, ולא ככותרת
+    // המסך: מי שגורר קובץ תקין לא אמור לפגוש שלב שאין לו בו החלטה.
+    if (ui.mode === "file") return "";
+
     if (ui.mode !== "month") {
       return `<div class="entry-period">
         <label class="field">
@@ -189,25 +229,8 @@ window.ViewEntry = (function () {
       </div>`;
     }
     return `<div class="entry-period">
-      <label class="field">
-        <span>שנה</span>
-        <select class="select" id="entry-year">
-          ${options.map((y) => `<option ${y === ui.year ? "selected" : ""}>${y}</option>`)
-            .join("")}
-        </select>
-      </label>
-      <div class="seg month-seg" role="group" aria-label="חודש">
-        ${Fmt.SHORT.map((label, i) => {
-          const month = i + 1;
-          const has = Store.sales().some((s) => s.y === ui.year && s.m === month && s.a);
-          const open = (ui.drafts.get(`${ui.year}|${month}`) || new Map()).size > 0;
-          return `<button data-month="${month}" class="${month === ui.month ? "is-active" : ""}"
-                          title="${Fmt.month(month)}${has ? " · יש נתונים" : ""}${
-                            open ? " · טיוטה שלא נשמרה" : ""}">
-            ${label}${has || open
-              ? `<i class="month-dot ${open ? "is-draft" : ""}"></i>` : ""}</button>`;
-        }).join("")}
-      </div>
+      ${yearField}
+      ${monthStrip()}
     </div>`;
   }
 
@@ -367,6 +390,240 @@ window.ViewEntry = (function () {
     });
   }
 
+  /* ------------------------------------------------------------- מקובץ
+     מסך אחד לכל הדרך: גוררים או מדביקים, רואים בדיוק מה ייכנס ובמה זה שונה
+     ממה שרשום היום, ומאשרים. אין מיפוי עמודות ואין שלבים — מה שיוצא מה-ERP
+     נכנס כמו שהוא. */
+
+  const isPhone = () => window.innerWidth <= 1000;
+
+  function dropCard() {
+    const years = Store.years();
+    const options = [...years, years[years.length - 1] + 1];
+    return UI.card("", {
+      body: `
+        <div class="dropzone" id="drop-zone">
+          <div class="drop-icon">${UI.icon("upload", 26)}</div>
+          <b class="drop-title">${isPhone() ? "העלאת הקובץ מה-ERP"
+            : "גררו לכאן את הקובץ מה-ERP"}</b>
+          <div class="drop-sub">${isPhone()
+            ? "או הדביקו את הטבלה בתיבה שלמטה"
+            : `או הדביקו את הטבלה מאקסל —
+               <kbd>Ctrl</kbd>+<kbd>V</kbd> בכל מקום במסך`}</div>
+          <div class="row-actions drop-actions">
+            <button class="btn btn-primary" id="file-pick">${
+              UI.icon("file", 15)} בחירת קובץ מהמחשב</button>
+          </div>
+          <div class="drop-note hint">xlsx או csv · העמודות מזוהות לפי הכותרות
+            שלהן, והחודש נקרא מתוך הטבלה</div>
+          <input type="file" id="file-input" class="visually-hidden"
+                 accept=".xlsx,.xlsm,.csv,.txt,.tsv">
+        </div>
+        <div class="drop-fallback hint">
+          החודש נקרא מתוך הטבלה. אם אין בה עמודת חודש, השורות ייכנסו ל־
+          <select class="select select-sm" id="entry-month" aria-label="חודש ברירת מחדל">
+            ${Fmt.MONTHS.map((name, i) => `<option value="${i + 1}" ${
+              i + 1 === ui.month ? "selected" : ""}>${name}</option>`).join("")}
+          </select>
+          <select class="select select-sm" id="entry-year" aria-label="שנת ברירת מחדל">
+            ${options.map((y) => `<option ${y === ui.year ? "selected" : ""}>${y}</option>`)
+              .join("")}
+          </select>
+        </div>
+        ${ui.error ? `<div class="notice down" style="margin-top:12px">${
+          UI.icon("alert", 15)} ${Fmt.escape(ui.error)}</div>` : ""}
+        <details class="drop-paste" ${isPhone() ? "open" : ""}>
+          <summary>אפשר גם להדביק כאן</summary>
+          <textarea id="drop-paste-box" style="min-height:140px;font-family:inherit"
+            placeholder="מדביקים את הטבלה כולה, עם שורת הכותרות">${
+            Fmt.escape(ui.paste)}</textarea>
+          <div class="row-actions" style="margin-top:10px">
+            <button class="btn" id="drop-paste-read">${
+              UI.icon("check", 15)} בדיקת הטבלה</button>
+          </div>
+        </details>`,
+    });
+  }
+
+  /** מה ייכנס, ובמה זה שונה ממה שרשום היום — לפני שמאשרים. */
+  function planCard() {
+    const p = ui.plan;
+    const months = p.months;
+    const wipes = months.filter((m) => m.currentRows > 0);
+
+    const monthRows = months.map((m) => {
+      const change = m.currentTotal ? Metrics.change(m.total, m.currentTotal) : null;
+      return `<div class="list-row">
+        <div class="grow">
+          <div class="list-title">${Fmt.month(m.month)} ${m.year}</div>
+          <div class="list-sub">${Fmt.number(m.rows.length)} שורות ·
+            ${Fmt.number(m.customers)} לקוחות${m.currentRows
+              ? ` · יחליף ${Fmt.number(m.currentRows)} שורות שרשומות היום`
+              : " · חודש חדש במערכת"}</div>
+        </div>
+        <div class="list-value">
+          ${Fmt.money(m.total)}
+          ${m.currentTotal ? `<div class="hint">במקום ${Fmt.money(m.currentTotal)}</div>` : ""}
+        </div>
+        ${change === null ? "" : `<div style="min-width:74px;text-align:left">${
+          UI.delta(change)}</div>`}
+      </div>`;
+    }).join("");
+
+    const names = (list) => list.slice(0, 40)
+      .map((x) => `<span class="chip">${Fmt.escape(x.name)}</span>`).join("")
+      + (list.length > 40 ? `<span class="hint"> ועוד ${list.length - 40}</span>` : "");
+
+    return UI.card("מה ייכנס למערכת", {
+      sub: ui.planFrom,
+      flush: true,
+      body: `
+        <div class="plan-head">
+          <div class="plan-fact">
+            <span class="hint">שורות בקובץ</span>
+            <b>${Fmt.number(p.rowCount)}</b>
+          </div>
+          <div class="plan-fact">
+            <span class="hint">סך המכירות בקובץ</span>
+            <b>${Fmt.money(p.total)}</b>
+          </div>
+          <div class="plan-fact">
+            <span class="hint">חודשים</span>
+            <b>${months.map((m) => `${Fmt.monthShort(m.month)} ${m.year}`).join(", ") || "—"}</b>
+          </div>
+        </div>
+        <div class="list">${monthRows}</div>
+        ${wipes.length ? `<div class="notice" style="margin:0 16px 14px">
+          ${UI.icon("alert", 15)} חודש שמגיע בקובץ מוחלף במלואו — הקובץ הוא התמונה
+          המלאה שלו. אפשר לבטל בלחיצה אחת אחרי העדכון.</div>` : ""}
+        ${p.parties.length ? `<div class="plan-block">
+          <div class="plan-block-head">${Fmt.number(p.parties.length)} לקוחות חדשים ייפתחו</div>
+          <div class="chips">${names(p.parties)}</div>
+        </div>` : ""}
+        ${p.agents.length ? `<div class="plan-block">
+          <div class="plan-block-head">${Fmt.number(p.agents.length)} סוכנים חדשים ייפתחו</div>
+          <div class="chips">${names(p.agents)}</div>
+        </div>` : ""}
+        ${p.problems.length ? `<div class="plan-block">
+          <div class="plan-block-head down">${Fmt.number(p.problems.length)} שורות לא ייכנסו</div>
+          <div class="list">${p.problems.slice(0, 12).map((row) => `
+            <div class="list-row">
+              <div class="grow"><div class="list-sub ellipsis">${
+                Fmt.escape(row.line.slice(0, 90))}</div></div>
+              <span class="badge down">${Fmt.escape(row.why)}</span>
+            </div>`).join("")}</div>
+        </div>` : ""}
+        <div class="plan-actions">
+          <button class="btn btn-primary btn-lg" id="plan-apply" ${
+            p.rowCount ? "" : "disabled"}>${UI.icon("check", 16)} עדכון המערכת</button>
+          <button class="btn" id="plan-cancel">ביטול</button>
+        </div>`,
+    });
+  }
+
+  function fileBody() {
+    if (ui.reading) {
+      return UI.card("", { body: UI.empty("קורא את הקובץ…", "רגע אחד.", "file") });
+    }
+    return ui.plan ? planCard() : dropCard();
+  }
+
+  /** קורא קובץ או טקסט, ומציג את התוכנית. */
+  async function read(root, ctx, source) {
+    ui.reading = true;
+    ui.error = "";
+    render(root, ctx);
+    const fallback = { year: ui.year, month: ui.month };
+    try {
+      const planned = typeof source === "string"
+        ? Importer.fromText(source, fallback)
+        : await Importer.fromFile(source, fallback);
+      ui.plan = planned.rowCount || planned.problems.length ? planned : null;
+      ui.planFrom = typeof source === "string" ? "מטבלה שהודבקה" : source.name;
+      if (!ui.plan) ui.error = "לא נמצאו שורות מכירה בקובץ. צריך עמודת לקוח ועמודת סכום.";
+    } catch (err) {
+      ui.plan = null;
+      ui.error = err.message || "לא ניתן לקרוא את הקובץ";
+    }
+    ui.reading = false;
+    render(root, ctx);
+  }
+
+  function applyPlan(root, ctx) {
+    const p = ui.plan;
+    const label = `ייבוא ${p.months.map((m) => `${Fmt.month(m.month)} ${m.year}`).join(", ")}`;
+    Importer.apply(p, label);
+    const total = Metrics.sum(p.months.map((m) => m.total));
+    ui.plan = null;
+    ui.paste = "";
+    if (p.months.length) {
+      ui.year = p.months[p.months.length - 1].year;
+      ui.month = p.months[p.months.length - 1].month;
+    }
+    App.toast(`${label} · ${Fmt.number(p.rowCount)} שורות · ${Fmt.money(total)}`,
+              "up", { undo: true });
+    render(root, ctx);
+  }
+
+  /** גרירה, בחירת קובץ והדבקה — שלוש דרכים לאותו דבר. */
+  function wireFile(root, ctx) {
+    const zone = root.querySelector("#drop-zone");
+    if (zone) {
+      const input = root.querySelector("#file-input");
+      root.querySelector("#file-pick").addEventListener("click", () => input.click());
+      input.addEventListener("change", () => {
+        if (input.files[0]) read(root, ctx, input.files[0]);
+      });
+      ["dragenter", "dragover"].forEach((name) => zone.addEventListener(name, (e) => {
+        e.preventDefault();
+        zone.classList.add("is-over");
+      }));
+      ["dragleave", "drop"].forEach((name) => zone.addEventListener(name, (e) => {
+        e.preventDefault();
+        zone.classList.remove("is-over");
+      }));
+      zone.addEventListener("drop", (e) => {
+        const file = e.dataTransfer.files[0];
+        if (file) read(root, ctx, file);
+        else {
+          const text = e.dataTransfer.getData("text/plain");
+          if (text) read(root, ctx, text);
+        }
+      });
+
+      const box = root.querySelector("#drop-paste-box");
+      box.addEventListener("input", () => { ui.paste = box.value; });
+      root.querySelector("#drop-paste-read").addEventListener("click", () => {
+        if (!box.value.trim()) return App.toast("אין מה לקרוא", "down");
+        read(root, ctx, box.value);
+      });
+    }
+
+    const apply = root.querySelector("#plan-apply");
+    if (apply) {
+      apply.addEventListener("click", () => applyPlan(root, ctx));
+      root.querySelector("#plan-cancel").addEventListener("click", () => {
+        ui.plan = null;
+        render(root, ctx);
+      });
+    }
+
+    // הדבקה בכל מקום במסך: מי שהעתיק טבלה מאקסל לא צריך למצוא לאן להדביק.
+    if (pasteHandler) document.removeEventListener("paste", pasteHandler);
+    pasteHandler = (e) => {
+      if (!root.isConnected || ui.mode !== "file" || ui.plan || ui.reading) return;
+      const target = e.target;
+      if (target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT")) return;
+      const text = (e.clipboardData || window.clipboardData).getData("text");
+      if (!text || !text.trim()) return;
+      e.preventDefault();
+      read(root, ctx, text);
+    };
+    document.addEventListener("paste", pasteHandler);
+  }
+
+  let pasteHandler = null;
+
   function pasteTab() {
     return UI.card("הדבקה מאקסל", {
       sub: "עמודה של לקוח (מספר או שם) ועמודה של סכום — מה שמעתיקים מגיליון",
@@ -449,22 +706,26 @@ window.ViewEntry = (function () {
         <header class="card-head">
           <div>
             <h3>${modeTitle()}</h3>
-            <div class="sub">${Store.years().includes(ui.year)
+            <div class="sub">${ui.mode === "file"
+              ? "הקובץ מה-ERP נכנס כמו שהוא — בלי הקלדה ובלי התאמות"
+              : Store.years().includes(ui.year)
               ? "מה שיוזן נשמר לצד נתוני הדוח ומסומן כהזנה ידנית"
               : `${ui.year} אינה בדוחות — מה שיוזן יפתח אותה במערכת`}</div>
           </div>
           <div class="spacer">
             <div class="seg">
-              ${[["month", "לפי חודש"], ["customer", "לפי לקוח"], ["targets", "יעדים"]]
+              ${[["file", "מקובץ"], ["month", "לפי חודש"], ["customer", "לפי לקוח"],
+                 ["targets", "יעדים"]]
                 .map(([id, label]) => `<button data-mode="${id}" class="${
                   ui.mode === id ? "is-active" : ""}">${label}</button>`).join("")}
             </div>
           </div>
         </header>
-        <div class="card-body">${periodBar()}</div>
+        ${periodBar() ? `<div class="card-body">${periodBar()}</div>` : ""}
       </section>
 
-      ${ui.mode === "customer" ? customerBody()
+      ${ui.mode === "file" ? fileBody()
+        : ui.mode === "customer" ? customerBody()
         : ui.mode === "targets" ? targetsBody()
         : ui.tab === "paste" ? pasteTab() : UI.card("", {
         flush: true,
@@ -497,6 +758,7 @@ window.ViewEntry = (function () {
           </div>`,
       })}
 
+      ${ui.mode === "file" ? "" : `
       <div class="save-bar ${waiting.length ? "is-on" : ""}">
         <div class="save-facts">
           <b>${Fmt.number(waiting.length)}</b> שורות ממתינות לשמירה
@@ -514,11 +776,12 @@ window.ViewEntry = (function () {
               : ui.mode === "customer" ? `שמירת ${ui.year}`
               : `שמירת ${Fmt.month(ui.month)}`}</button>
         </div>
-      </div>`;
+      </div>`}`;
 
     /* ---------------------------------------------------------------- קשירה */
     UI.on(root, "[data-mode]", "click", (e) => {
       ui.mode = e.currentTarget.dataset.mode;
+      if (ui.mode === "file") ui.error = "";
       if (ui.mode === "targets") ui.scope = "likely";
       if (ui.mode === "customer" && !ui.customer) {
         const top = Metrics.overview({ year: ui.year, agent: ctx.agent }).customers[0];
@@ -538,10 +801,17 @@ window.ViewEntry = (function () {
     const openCard = root.querySelector("#entry-open-card");
     if (openCard) openCard.addEventListener("click", () => App.openCustomer(ui.customer));
 
-    root.querySelector("#entry-year").addEventListener("change", (e) => {
-      ui.year = Number(e.target.value);
-      render(root, ctx);
-    });
+    const yearBox = root.querySelector("#entry-year");
+    if (yearBox) {
+      yearBox.addEventListener("change", (e) => {
+        ui.year = Number(e.target.value);
+        render(root, ctx);
+      });
+    }
+    const monthBox = root.querySelector("#entry-month");
+    if (monthBox) {
+      monthBox.addEventListener("change", (e) => { ui.month = Number(e.target.value); });
+    }
     UI.on(root, "[data-month]", "click", (e) => {
       ui.month = Number(e.currentTarget.dataset.month);
       render(root, ctx);
@@ -600,7 +870,10 @@ window.ViewEntry = (function () {
     const newBtn = root.querySelector("#entry-new");
     if (newBtn) newBtn.addEventListener("click", () => addCustomer(root, ctx));
 
-    root.querySelector("#entry-clear").addEventListener("click", () => {
+    wireFile(root, ctx);
+
+    const clearBtn = root.querySelector("#entry-clear");
+    if (clearBtn) clearBtn.addEventListener("click", () => {
       if (!pending().length) return App.toast("אין מה לנקות");
       App.confirm({
         title: `לנקות את ההזנה של ${ui.mode === "targets" ? `יעדי ${ui.year}`
@@ -615,7 +888,8 @@ window.ViewEntry = (function () {
       });
     });
 
-    root.querySelector("#entry-save").addEventListener("click", () => save(root, ctx));
+    const saveBtn = root.querySelector("#entry-save");
+    if (saveBtn) saveBtn.addEventListener("click", () => save(root, ctx));
 
     const pasteBtn = root.querySelector("#paste-read");
     if (pasteBtn) {

@@ -313,6 +313,57 @@ window.Store = (function () {
       });
     },
 
+    /**
+     * ייבוא של ייצוא מה-ERP — קובץ שנגרר פנימה או טבלה שהודבקה.
+     *
+     * חודש שמגיע בייבוא מוחלף במלואו ולא מתמזג: הייצוא הוא התמונה המלאה של
+     * אותו חודש, ומיזוג היה משאיר מתחת לחדש שורות ישנות של לקוחות שירדו
+     * מהדוח, או כפילות של אותה מכירה תחת סוכן שהשתנה. לקוחות וסוכנים שאינם
+     * מוכרים נפתחים כאן, אחרת השורה היתה נכנסת בלי שם.
+     *
+     * הכול בפעולת ביטול אחת: מי שייבא את החודש הלא נכון מבטל אותו, לא
+     * מאה שורות.
+     */
+    applyImport(payload, label) {
+      const months = payload.months || [];
+      commit(label || `ייבוא ${months.length} חודשים`, () => {
+        (payload.parties || []).forEach((party) => {
+          const no = String(party.no).trim();
+          if (!no || state.parties.has(no)) return;
+          state.parties.set(no, { no, name: String(party.name || no).trim() || no,
+                                  profile: emptyProfile() });
+        });
+        (payload.agents || []).forEach((agent) => {
+          const no = String(agent.no).trim();
+          if (!no || state.agents.some((a) => a.no === no)) return;
+          state.agents = [...state.agents, { no, name: String(agent.name || no).trim() || no }];
+        });
+        months.forEach((month) => {
+          const y = Number(month.year);
+          const m = Number(month.month);
+          [...state.sales.entries()].forEach(([key, sale]) => {
+            if (sale.y === y && sale.m === m) state.sales.delete(key);
+          });
+          (month.rows || []).forEach((row) => {
+            const c = String(row.c).trim();
+            const p = String(row.p || c).trim();
+            const agent = String(row.agent || "").trim() || defaultAgent();
+            const cur = String(row.cur || "").trim();
+            const a = Math.round(Fmt.parseAmount(row.a) * 100) / 100;
+            // שורה באפס נשמרת: הדוח הדפיס את הלקוח באותו חודש, וזו עובדה
+            // שונה מ"לא הופיע בכלל". רק שורה בלי לקוח אינה שורה.
+            if (!c) return;
+            const key = saleKey(c, p, agent, y, m, cur);
+            const held = state.sales.get(key);
+            // אותו מפתח פעמיים בקובץ מצטבר, כדי שסכום החודש יישאר כפי שהודפס.
+            state.sales.set(key, { c, p, agent, y, m, cur: cur || undefined,
+                                   a: held ? Math.round((held.a + a) * 100) / 100 : a,
+                                   source: "import" });
+          });
+        });
+      });
+    },
+
     /* ---------------------------------------------------------------- סוכנים
        הדוח מביא את הסוכנים שיש בו, אבל תיק מתחלף: סוכן חדש מתחיל, סוכן ותיק
        עוזב, ושם נכתב בטעות. שלוש הפעולות האלה מחזיקות את הרשימה מעודכנת בלי

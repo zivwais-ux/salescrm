@@ -32,15 +32,21 @@ web/
   js/charts.js      גרפי SVG ללא ספריות
   js/assistant.js   מנוע השאילתות של הצ'אט
   js/excel.js       ייצוא/ייבוא
+  js/importer.js    קריאת קובץ/הדבקה → תוכנית
   js/views/         dashboard, trend, customers, entry, grid, activity, settings
   js/app.js         ניווט, נושא, מגירה, צ'אט, חיפוש מהיר
   data/dataset.js   נתוני הזינוך — נוצר אוטומטית, לא לערוך ביד
 tools/
   parse_pdf.py      פענוח ה-PDF ממיקומי התווים
   build_dataset.py  בונה את dataset.js / dataset.json
+  read_table.py     קורא ייצוא xlsx/csv של חודש
 ```
 
 עדכון מדוח חדש: `python3 tools/build_dataset.py <תיקיית ה-PDF>` (דורש `pymupdf`).
+אפשר להעביר באותה שורה גם ייצוא חודשי (`xlsx`/`csv`); `tools/read_table.py`
+קורא אותו (zip + XML ישירות — `openpyxl` נופל על הסגנונות של הקובץ הזה),
+ו-`apply_tables` מחליף כל חודש שהוא מכסה. **סדר קריטי**: `apply_tables` רץ
+*אחרי* מיזוג השנים הישנות מ-`dataset.json`, אחרת החודש שהוחלף נדרס בחזרה.
 השנה נקראת משורת התקופה של הדוח, ושנה שכבר במאגר ואין לה PDF נשמרת — אפשר
 להריץ על דוח בודד. **אחרי בנייה מחדש יש להעלות את `SEED_VERSION`** ב-
 `build_dataset.py`, אחרת מכשיר שכבר מחזיק נתונים לא יקלוט את השינוי.
@@ -121,8 +127,21 @@ tools/
 
 ## הזנה ידנית — מה שחשוב לדעת
 
-- `views/entry.js` הוא מסך ההזנה: חודש נבחר, רשימת לקוחות עם הקשר (אותו חודש
-  אשתקד, חודש קודם), שדה שמקבל גם חשבון (`Fmt.parseAmount`), והדבקה מאקסל.
+- `views/entry.js` הוא מסך ההזנה, וברירת המחדל שלו היא מצב **מקובץ**: גרירה,
+  בחירת קובץ, או הדבקה בכל מקום במסך. שאר המצבים הם הקלדה: חודש נבחר, רשימת
+  לקוחות עם הקשר (אותו חודש אשתקד, חודש קודם), ושדה שמקבל גם חשבון
+  (`Fmt.parseAmount`).
+- `js/importer.js` קורא ואינו שומר: `fromFile`/`fromText` מחזירים **תוכנית**
+  (`months`, `parties`, `agents`, `problems`), והשמירה היא `Store.applyImport`
+  בצעד נפרד שהמשתמש מאשר. `cellsFromXlsx` פורס את ה-zip בדפדפן
+  (`DecompressionStream("deflate-raw")`) וקורא את ה-XML ישירות — שים לב
+  שחלק מהייצואים כותבים אותו עם קידומת מרחב שמות (`<x:row>`), ולכן היא מוסרת
+  לפני הפענוח. ספריית `xlsx` מה-CDN היא נפילה לאחור בלבד.
+- `Store.applyImport({parties, agents, months}, label)` **מוחק כל חודש שהקובץ
+  מכסה** ואז מכניס את שורותיו, בפעולת ביטול אחת. אל תשנה את זה למיזוג: ייצוא
+  חוזר של חודש הוא התמונה המלאה שלו. שורה באפס נשמרת, שורה בלי לקוח לא.
+  שקל נשמר כמטבע ריק (`Importer.currencyOf`), אחרת המפתח שונה מזה שבזרע
+  ואותה מכירה נספרת פעמיים.
 - `Store.setMonth(year, month, rows)` שומר חודש שלם בפעולת ביטול אחת,
   `Store.setCustomerYear(no, year, months)` שנה שלמה של לקוח, ו-`Store.setTargets`
   יעדים של שנה. שלושתם commit אחד — לא אחד לכל שורה.
