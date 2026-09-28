@@ -595,12 +595,116 @@ label.stacked textarea:focus {
   font-size: .56em;
   font-weight: var(--fw-medium);
   color: var(--muted);
-  margin-inline-start: .14em;
+  margin-inline: .16em;
   letter-spacing: 0;
 }
 .hero-meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
              margin-top: var(--sp-2); }
 .hero-chart { padding: var(--sp-4) var(--sp-4) var(--sp-3); min-width: 0; }
+
+/* ------------------------------------------------------- מסילת המדדים --
+   ארבעה מספרים על משטח אחד, מופרדים בקו ולא במרווח. הם עונים יחד על שאלה
+   אחת, ולכן הם נקראים כאובייקט אחד ולא כארבע קופסאות. */
+.stat-rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  background: var(--surface);
+  border: 1px solid var(--card-bd);
+  border-radius: var(--r-lg);
+  box-shadow: var(--card-ring), var(--card-el);
+  overflow: hidden;
+}
+.stat {
+  padding: var(--sp-4) var(--sp-5);
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  border-inline-start: 1px solid var(--line);
+}
+.stat:first-child { border-inline-start: 0; }
+.stat-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-medium);
+  color: var(--muted);
+}
+.stat-label svg { color: var(--muted); flex: none; }
+.stat-value {
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-semi);
+  letter-spacing: var(--track-tight);
+  line-height: var(--lh-snug);
+  font-variant-numeric: proportional-nums;
+  direction: rtl;
+  unicode-bidi: plaintext;
+}
+.stat-foot { font-size: var(--fs-micro); color: var(--muted); }
+.stat-help {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-inline-start: auto;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.stat-help:hover { background: var(--accent-soft); color: var(--accent-text);
+                   border-color: var(--accent-line); }
+
+/* ---------------------------------------------------------- תור העבודה --
+   שורה אחת לכל דבר שדורש טיפול, והפעולה יושבת בשורה עצמה. */
+.act-list { display: grid; grid-template-columns: minmax(0, 1fr); }
+.act-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.act-row:last-child { border-bottom: 0; }
+.act-row:hover { background: var(--surface-2); }
+.act-row > .grow { flex: 1; min-width: 0; }
+
+/* סימן הדחיפות: קו צבע דק בקצה השורה, שנקרא לפני שקוראים מילה */
+.act-mark {
+  width: 3px;
+  align-self: stretch;
+  min-height: 30px;
+  border-radius: 99px;
+  background: var(--line-strong);
+  flex: none;
+}
+.act-mark.down { background: var(--down); }
+.act-mark.warn { background: var(--warn); }
+
+.act-tools { display: flex; gap: var(--sp-1); flex: none; opacity: 0;
+             transition: opacity var(--dur-fast); }
+.act-row:hover .act-tools, .act-row:focus-within .act-tools { opacity: 1; }
+.act-tools .btn { width: 30px; padding: 0; }
+.act-tools svg { color: var(--text-2); }
+
+.act-more {
+  width: 100%;
+  padding: var(--sp-3);
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--accent-text);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.act-more:hover { background: var(--surface-2); }
 
 .kpi { padding: var(--sp-4) var(--sp-5); display: grid; gap: 2px; }
 .kpi-label {
@@ -1678,8 +1782,8 @@ kbd {
   .heat-cell-label { font-size: 9.5px; }
 
   /* שטח הנגיעה גדל בלי שהעיגול יגדל: אצבע אינה עכבר, ו-16 פיקסלים אינם יעד. */
-  .kpi-help { position: relative; }
-  .kpi-help::after { content: ""; position: absolute; inset: -9px; }
+  .kpi-help, .stat-help { position: relative; }
+  .kpi-help::after, .stat-help::after { content: ""; position: absolute; inset: -9px; }
   .check { min-height: 32px; }
   .check input[type="checkbox"] { width: 18px; height: 18px; }
 

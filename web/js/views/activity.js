@@ -181,24 +181,10 @@ window.ViewActivity = (function () {
 
     /* ------------------------------------------------------------- אירועים */
     // מחזיר האם נשמר, כדי שהגיליון יישאר פתוח על קלט חסר במקום להיעלם איתו.
-    const save = (draft) => {
-      if (!draft.title) {
-        App.toast("צריך לכתוב מה צריך לעשות", "down");
-        return false;
-      }
-      if (!draft.party_no) {
-        App.toast("צריך לבחור לקוח", "down");
-        return false;
-      }
-      Store.addActivity(draft);
-      ui.draft = { party: draft.party_no, kind: draft.kind, follow: "" };
-      App.toast("נוסף לרשימה", "up");
-      return true;
-    };
 
     const title = root.querySelector("#act-title");
     if (title) {
-      const quickSave = () => save({
+      const quickSave = () => commit({
         party_no: ui.draft.party,
         kind: ui.draft.kind,
         follow_up_on: ui.draft.follow || null,
@@ -214,7 +200,7 @@ window.ViewActivity = (function () {
         });
       });
       root.querySelector("#act-more").addEventListener("click",
-        () => openComposer({ title: title.value.trim() }, save));
+        () => openComposer({ title: title.value.trim() }));
       UI.on(root, "[data-follow]", "click", (e) => {
         ui.draft.follow = e.currentTarget.dataset.follow;
         render(root, ctx);
@@ -231,7 +217,7 @@ window.ViewActivity = (function () {
       });
     }
 
-    root.querySelector("#act-new").addEventListener("click", () => openComposer({}, save));
+    root.querySelector("#act-new").addEventListener("click", () => openComposer({}));
 
     UI.on(root, "[data-filter]", "click", (e) => {
       ui.filter = e.currentTarget.dataset.filter;
@@ -255,7 +241,23 @@ window.ViewActivity = (function () {
   }
 
   /** הטופס המלא — בטלפון גיליון מסך מלא, בשולחן העבודה חלון. */
-  function openComposer(seed, save) {
+  /** שמירת רישום חדש. ברירת המחדל של המלחין, וגם מה שמסכים אחרים משתמשים בו. */
+  function commit(draft) {
+    if (!draft.title) {
+      App.toast("צריך לכתוב מה צריך לעשות", "down");
+      return false;
+    }
+    if (!draft.party_no) {
+      App.toast("צריך לבחור לקוח", "down");
+      return false;
+    }
+    Store.addActivity(draft);
+    ui.draft = { party: draft.party_no, kind: draft.kind, follow: "" };
+    App.toast("נוסף לרשימה", "up");
+    return true;
+  }
+
+  function openComposer(seed, save = commit) {
     const draft = { kind: ui.draft.kind, party: ui.draft.party, ...seed };
     const panel = App.openDrawer({
       title: "רישום חדש",
@@ -322,5 +324,5 @@ window.ViewActivity = (function () {
     return panel;
   }
 
-  return { render, openComposer, KINDS, ICONS };
+  return { render, openComposer, commit, KINDS, ICONS };
 })();
