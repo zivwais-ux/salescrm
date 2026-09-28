@@ -58,14 +58,67 @@
   /* --- מבנה --- */
   --r-sm: 6px;
   --r: 10px;
-  --r-lg: 14px;
-  --r-xl: 18px;
+  --r-lg: 16px;
+  --r-xl: 20px;
 
-  --shadow-sm: 0 1px 2px oklch(0.235 0.019 266 / .06);
-  --shadow:    0 1px 2px oklch(0.235 0.019 266 / .05),
-               0 4px 12px oklch(0.235 0.019 266 / .05);
-  --shadow-lg: 0 8px 24px oklch(0.235 0.019 266 / .10),
-               0 2px 6px oklch(0.235 0.019 266 / .06);
+  /* סולם מרווחים על בסיס 4. כל padding, gap ומרווח במערכת יושב על אחת
+     המדרגות האלה — זה מה שמייצר קצב אחיד במקום מספרים שנבחרו לכל רכיב. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --sp-8: 40px;
+  --sp-9: 56px;
+
+  /* סולם טיפוגרפי: שבע מדרגות, יחס ~1.15 בקטנות ו-1.3 בגדולות. המדרגות
+     הקטנות צפופות כי שם יושבות התוויות, והקפיצה לכותרת ולמספר היא הצהרה. */
+  --fs-micro:   11px;
+  --fs-label:   12px;
+  --fs-sm:      13px;
+  --fs-body:    14px;
+  --fs-h3:      15px;
+  --fs-h2:      18px;
+  --fs-h1:      24px;
+  --fs-display: 42px;
+
+  --lh-tight: 1.1;
+  --lh-snug:  1.35;
+  --lh-body:  1.55;
+
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semi:    600;
+  --fw-bold:    700;
+
+  /* ככל שהטקסט גדול יותר כך הריווח נסגר — אחרת מספר בגודל תצוגה מתפרק */
+  --track-display: -.035em;
+  --track-tight:   -.02em;
+  --track-label:    .04em;
+
+  /* --- עומק ---
+     שתי שכבות לכל צל: אחת הדוקה שמגדירה את הקצה, ואחת רכה ורחוקה שמייצרת
+     את ההרמה. צל בשכבה אחת נראה כמו קו מטושטש ולא כמו גובה. */
+  --shadow-sm: 0 1px 2px oklch(0.235 0.019 266 / .05),
+               0 1px 1px oklch(0.235 0.019 266 / .03);
+  --shadow:    0 1px 2px oklch(0.235 0.019 266 / .04),
+               0 6px 16px -4px oklch(0.235 0.019 266 / .10);
+  --shadow-lg: 0 12px 32px -8px oklch(0.235 0.019 266 / .16),
+               0 2px 8px oklch(0.235 0.019 266 / .06);
+
+  /* משטח הכרטיס. במצב יום הקצה נוצר מהצל ומטבעת שיער, ולא ממסגרת מלאה:
+     מסגרת על כל קופסה היא מה שגורם למסך להיראות כמו טופס. במצב לילה אין
+     צל שנראה, ולכן שם המסגרת חוזרת והיא זו שמפרידה בין השכבות. */
+  --card-bd: transparent;
+  --card-ring: inset 0 0 0 1px oklch(0.235 0.019 266 / .055);
+  --card-el: var(--shadow-sm);
+
+  /* --- תנועה --- */
+  --dur-fast: 120ms;
+  --dur:      200ms;
+  --dur-slow: 380ms;
 
   /* בהירות רקע ראשי־התיבות, נגזרת מהשם */
   --tint-l: 0.932;
@@ -130,6 +183,11 @@
   --shadow-sm: 0 1px 2px rgb(0 0 0 / .45);
   --shadow:    0 1px 2px rgb(0 0 0 / .4), 0 6px 16px rgb(0 0 0 / .38);
   --shadow-lg: 0 12px 34px rgb(0 0 0 / .55), 0 2px 8px rgb(0 0 0 / .4);
+
+  /* בלילה הצל אינו נראה על רקע כהה, ולכן ההפרדה חוזרת להיות מסגרת */
+  --card-bd: var(--line);
+  --card-ring: none;
+  --card-el: none;
 
   color-scheme: dark;
 }
@@ -229,28 +287,41 @@ svg { display: block; }
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   width: 100%;
-  padding: 8px 10px;
+  padding: var(--sp-2) var(--sp-3);
   border: 0;
   border-radius: var(--r);
   background: transparent;
   color: var(--text-2);
-  font-size: 13.5px;
-  font-weight: 500;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   cursor: pointer;
   text-align: start;
-  transition: background .13s, color .13s;
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
-.nav-item svg { flex: none; color: var(--muted); transition: color .13s; }
+.nav-item svg { flex: none; color: var(--muted); transition: color var(--dur-fast); }
 .nav-item:hover { background: var(--surface-2); color: var(--text); }
 .nav-item:hover svg { color: var(--text-2); }
 .nav-item.is-active {
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-weight: 600;
+  font-weight: var(--fw-semi);
+}
+/* פס מבטא בקצה הפריט הפעיל: סימון שנקרא במבט אחד גם כשהרקע הרך כמעט שקוף */
+.nav-item.is-active::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3px;
+  height: 17px;
+  border-radius: 99px;
+  background: var(--accent);
 }
 .nav-item.is-active svg { color: var(--accent); }
 .nav-count {
@@ -284,16 +355,17 @@ svg { display: block; }
 }
 
 .page-head { min-width: 0; }
-.page-title { font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
-.page-sub { font-size: 12px; color: var(--muted); }
+.page-title { font-size: var(--fs-h2); font-weight: var(--fw-semi);
+              letter-spacing: var(--track-tight); line-height: var(--lh-tight); }
+.page-sub { font-size: var(--fs-label); color: var(--muted); }
 
 .topbar-tools { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
 .no-mobile { display: inline-flex; }
 
 /* עמודה אחת שאינה גדלה מעבר לרוחב שיש: בלי minmax(0,1fr) עמודת גריד
    מתרחבת עד רוחב התוכן המלא, ושם ארוך בשורה אחת היה מותח את כל המסך. */
-.view { padding: 22px 24px 48px; display: grid; grid-template-columns: minmax(0, 1fr);
-        gap: 16px; align-content: start; }
+.view { padding: var(--sp-6) var(--sp-6) var(--sp-9); display: grid;
+        grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); align-content: start; }
 
 /* --------------------------------------------------------------- controls -- */
 .btn {
@@ -441,71 +513,114 @@ label.stacked textarea:focus {
 /* ------------------------------------------------------------------ cards -- */
 .card {
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--card-bd);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--card-ring), var(--card-el);
 }
+
+/* פאנל שקוע: חומר משני שנמצא בתוך כרטיס ואינו כרטיס בזכות עצמו. */
+.panel {
+  background: var(--surface-2);
+  border-radius: var(--r);
+  padding: var(--sp-4);
+}
+
 .card-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5) var(--sp-3);
+}
+.card-head h3 {
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-semi);
+  letter-spacing: var(--track-tight);
+}
+.card-head .sub {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  line-height: var(--lh-snug);
+  margin-top: 1px;
+}
+.card-head .spacer { margin-inline-start: auto; }
+/* כשהגוף צמוד לקצה (רשימה או טבלה) הכותרת צריכה קו שמפריד ממנו; כשיש ריפוד,
+   הרווח עושה את העבודה והקו רק מוסיף רעש. */
+.card-head:has(+ .card-body.flush) {
+  padding-bottom: var(--sp-4);
   border-bottom: 1px solid var(--line);
 }
-.card-head h3 { font-size: 13.5px; font-weight: 600; }
-.card-head .sub { font-size: 11.5px; color: var(--muted); }
-.card-head .spacer { margin-inline-start: auto; }
-.card-body { padding: 16px; }
+.card-body { padding: 0 var(--sp-5) var(--sp-5); }
 .card-body.flush { padding: 0; }
+/* כרטיס בלי כותרת — הגוף שלו מחזיק את כל הריפוד */
+.card > .card-body:first-child { padding-top: var(--sp-5); }
 
-.grid { display: grid; gap: 14px; }
+.grid { display: grid; gap: var(--sp-4); }
 .grid > *, .view > * { min-width: 0; }
 .cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); }
 .cols-3 { grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); }
 .cols-4 { grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); }
 
 /* --------------------------------------------------------------- hero KPI -- */
+/* ההירו הוא הרגע החזק היחיד במסך: משטח מגוון קלות שמרים את המספר הראשי
+   מעל שאר הכרטיסים, בלי לצבוע את כל העמוד. */
 .hero {
   display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
   gap: 0;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background:
+    radial-gradient(120% 140% at 100% 0%,
+      color-mix(in oklch, var(--accent) 7%, transparent) 0%, transparent 62%),
+    var(--surface);
+  border: 1px solid var(--card-bd);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--card-ring), var(--shadow);
   overflow: hidden;
 }
-.hero-main { padding: 20px 22px; display: grid; gap: 4px; align-content: center; }
-.hero-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+.hero-main { padding: var(--sp-6); display: grid; gap: var(--sp-1); align-content: center; }
+.hero-label {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  font-weight: var(--fw-medium);
+}
 .hero-value {
-  font-size: 40px;
-  font-weight: 700;
-  letter-spacing: -.035em;
-  line-height: 1.1;
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--track-display);
+  line-height: var(--lh-tight);
   /* ספרות פרופורציונליות: ברוחב אחיד מספר כמו 121 נראה רופף בגודל תצוגה */
   font-variant-numeric: proportional-nums;
 }
-.hero-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-.hero-chart { border-inline-start: 1px solid var(--line); padding: 14px 16px 10px; min-width: 0; }
-
-.kpi { padding: 15px 16px; display: grid; gap: 3px; }
-.kpi-label {
-  font-size: 11.5px;
+/* סימן המטבע אינו ספרה: הוא נסוג במשקל ובגודל כדי שהמספר יוביל */
+.hero-value .cur {
+  font-size: .56em;
+  font-weight: var(--fw-medium);
   color: var(--muted);
-  font-weight: 500;
+  margin-inline-start: .14em;
+  letter-spacing: 0;
+}
+.hero-meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+             margin-top: var(--sp-2); }
+.hero-chart { padding: var(--sp-4) var(--sp-4) var(--sp-3); min-width: 0; }
+
+.kpi { padding: var(--sp-4) var(--sp-5); display: grid; gap: 2px; }
+.kpi-label {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  font-weight: var(--fw-medium);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 .kpi-value {
-  font-size: 23px;
-  font-weight: 650;
-  letter-spacing: -.028em;
-  line-height: 1.2;
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-semi);
+  letter-spacing: var(--track-tight);
+  line-height: var(--lh-snug);
   font-variant-numeric: proportional-nums;
 }
 .hero-value, .kpi-value { direction: rtl; unicode-bidi: plaintext; }
-.kpi-foot { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.kpi-foot { font-size: var(--fs-micro); color: var(--muted); display: flex;
+            align-items: center; gap: var(--sp-2); }
 .kpi-help {
   width: 16px;
   height: 16px;
@@ -528,12 +643,12 @@ label.stacked textarea:focus {
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 21px;
-  padding: 0 8px;
+  gap: var(--sp-1);
+  height: 22px;
+  padding: 0 var(--sp-2);
   border-radius: 99px;
-  font-size: 11.5px;
-  font-weight: 550;
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semi);
   white-space: nowrap;
   background: var(--surface-2);
   border: 1px solid var(--line);
@@ -567,11 +682,12 @@ thead th {
   top: 0;
   z-index: 2;
   text-align: start;
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semi);
+  letter-spacing: var(--track-label);
   color: var(--muted);
   white-space: nowrap;
-  padding: 9px 12px;
+  padding: var(--sp-3);
   background: var(--surface-2);
   border-bottom: 1px solid var(--line);
 }
@@ -680,17 +796,18 @@ tfoot td {
 .list-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 11px 16px;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
   border-bottom: 1px solid var(--line);
   cursor: pointer;
-  transition: background .12s;
+  transition: background var(--dur-fast);
 }
 .list-row:last-child { border-bottom: 0; }
 .list-row:hover { background: var(--surface-2); }
 .list-row > .grow { flex: 1; min-width: 0; }
-.list-title { font-weight: 550; font-size: 13px; }
-.list-sub { font-size: 11.5px; color: var(--muted); }
+.list-title { font-weight: var(--fw-medium); font-size: var(--fs-sm);
+              letter-spacing: -.006em; }
+.list-sub { font-size: var(--fs-micro); color: var(--muted); line-height: var(--lh-snug); }
 .list-value {
   text-align: start;
   direction: ltr;
@@ -727,14 +844,17 @@ tfoot td {
 .empty {
   display: grid;
   justify-items: center;
-  gap: 8px;
-  padding: 44px 20px;
+  gap: var(--sp-2);
+  padding: var(--sp-8) var(--sp-5);
   text-align: center;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-sm);
+  max-width: 42ch;
+  margin-inline: auto;
+  line-height: var(--lh-snug);
 }
 .empty svg { color: var(--line-strong); }
-.empty strong { color: var(--text-2); font-weight: 550; font-size: 13.5px; }
+.empty strong { color: var(--text-2); font-weight: var(--fw-semi); font-size: var(--fs-h3); }
 
 /* ----------------------------------------------------------------- drawer -- */
 .drawer { position: fixed; inset: 0; z-index: 60; }
@@ -1151,10 +1271,10 @@ kbd {
 .row-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .toolbar {
   display: flex;
-  gap: 10px;
+  gap: var(--sp-2);
   align-items: center;
   flex-wrap: wrap;
-  padding: 12px 16px;
+  padding: var(--sp-3) var(--sp-5);
   border-bottom: 1px solid var(--line);
 }
 .toolbar .spacer { margin-inline-start: auto; }
