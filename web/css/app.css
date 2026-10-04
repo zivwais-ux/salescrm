@@ -58,8 +58,8 @@
   /* --- מבנה --- */
   --r-sm: 6px;
   --r: 10px;
-  --r-lg: 16px;
-  --r-xl: 20px;
+  --r-lg: 20px;
+  --r-xl: 26px;
 
   /* סולם מרווחים על בסיס 4. כל padding, gap ומרווח במערכת יושב על אחת
      המדרגות האלה — זה מה שמייצר קצב אחיד במקום מספרים שנבחרו לכל רכיב. */
@@ -241,6 +241,8 @@ svg { display: block; }
 .app {
   display: grid;
   grid-template-columns: var(--sidebar) minmax(0, 1fr);
+  gap: var(--sp-3);
+  padding: var(--sp-3);
   min-height: 100vh;
   min-height: 100dvh;
 }
@@ -250,14 +252,14 @@ svg { display: block; }
   grid-column: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 16px 12px;
+  gap: var(--sp-1);
+  padding: var(--sp-5) var(--sp-3);
   background: var(--surface);
-  border-inline-start: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--card-ring), var(--card-el);
   position: sticky;
-  top: 0;
-  height: 100vh;
-  height: 100dvh;
+  top: var(--sp-3);
+  height: calc(100dvh - var(--sp-6));
   overflow-y: auto;
 }
 
@@ -348,10 +350,9 @@ svg { display: block; }
   align-items: center;
   gap: 14px;
   min-height: var(--header-h);
-  padding: 10px 24px;
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) 0;
   background: color-mix(in oklch, var(--bg) 82%, transparent);
   backdrop-filter: saturate(180%) blur(12px);
-  border-bottom: 1px solid var(--line);
 }
 
 .page-head { min-width: 0; }
@@ -364,8 +365,8 @@ svg { display: block; }
 
 /* עמודה אחת שאינה גדלה מעבר לרוחב שיש: בלי minmax(0,1fr) עמודת גריד
    מתרחבת עד רוחב התוכן המלא, ושם ארוך בשורה אחת היה מותח את כל המסך. */
-.view { padding: var(--sp-6) var(--sp-6) var(--sp-9); display: grid;
-        grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); align-content: start; }
+.view { padding: 0 var(--sp-2) var(--sp-8); display: grid;
+        grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); align-content: start; }
 
 /* --------------------------------------------------------------- controls -- */
 .btn {
@@ -373,10 +374,10 @@ svg { display: block; }
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 34px;
-  padding: 0 13px;
+  height: 36px;
+  padding: 0 var(--sp-4);
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: 999px;
   background: var(--surface);
   color: var(--text);
   font-size: 13px;
@@ -407,15 +408,15 @@ svg { display: block; }
 .btn-danger:hover { background: var(--down-soft); border-color: var(--down); }
 .btn-danger svg { color: currentColor; }
 
-.btn-sm { height: 28px; padding: 0 9px; font-size: 12.5px; border-radius: var(--r-sm); }
-.btn-icon { width: 34px; padding: 0; }
-.btn-icon.btn-sm { width: 28px; }
+.btn-sm { height: 30px; padding: 0 var(--sp-3); font-size: 12.5px; border-radius: 999px; }
+.btn-icon { width: 36px; padding: 0; }
+.btn-icon.btn-sm { width: 30px; }
 
 .input, .select {
-  height: 34px;
-  padding: 0 11px;
+  height: 36px;
+  padding: 0 var(--sp-4);
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: 999px;
   background: var(--surface);
   color: var(--text);
   font-size: 13px;
@@ -446,8 +447,8 @@ svg { display: block; }
   align-items: center;
   min-width: 210px;
 }
-.search svg { position: absolute; inset-inline-start: 10px; color: var(--muted); pointer-events: none; }
-.search .input { padding-inline-start: 32px; }
+.search svg { position: absolute; inset-inline-start: 13px; color: var(--muted); pointer-events: none; }
+.search .input { padding-inline-start: 34px; }
 
 .field { display: flex; align-items: center; gap: 7px; }
 .field > span { font-size: 12px; color: var(--muted); white-space: nowrap; }
@@ -466,17 +467,17 @@ svg { display: block; }
 
 .seg {
   display: inline-flex;
-  padding: 2px;
+  padding: 3px;
   gap: 2px;
   background: var(--surface-2);
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: 999px;
 }
 .seg button {
-  height: 28px;
-  padding: 0 11px;
+  height: 30px;
+  padding: 0 var(--sp-3);
   border: 0;
-  border-radius: var(--r-sm);
+  border-radius: 999px;
   background: transparent;
   color: var(--text-2);
   font-size: 12.5px;
@@ -560,7 +561,7 @@ label.stacked textarea:focus {
 /* כרטיס בלי כותרת — הגוף שלו מחזיק את כל הריפוד */
 .card > .card-body:first-child { padding-top: var(--sp-5); }
 
-.grid { display: grid; gap: var(--sp-4); }
+.grid { display: grid; gap: var(--sp-5); }
 .grid > *, .view > * { min-width: 0; }
 .cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); }
 .cols-3 { grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); }
@@ -1380,11 +1381,12 @@ kbd {
   z-index: 5;
   pointer-events: none;
   background: var(--text);
-  color: var(--bg);
-  font-size: 11.5px;
-  padding: 7px 10px;
-  border-radius: var(--r-sm);
-  box-shadow: var(--shadow);
+  color: var(--surface);
+  font-size: var(--fs-label);
+  font-weight: var(--fw-semi);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg);
   white-space: nowrap;
   transform: translate(50%, -50%);
   opacity: 0;
@@ -1416,11 +1418,10 @@ kbd {
   z-index: 25;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 24px;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-3) 0;
   background: color-mix(in oklch, var(--bg) 88%, transparent);
   backdrop-filter: saturate(180%) blur(12px);
-  border-bottom: 1px solid var(--line);
 }
 .ctxbar[hidden] { display: none; }
 
@@ -1782,6 +1783,16 @@ kbd {
     gap: 12px;
   }
 
+  /* הגלולות מצטמצמות במעט ברוחב טלפון: הריפוד הנדיב של המחשב דוחק שורת
+     בוררים אחת מעבר לקצה במסכים של 320px. */
+  /* מסילת המדדים בשתי עמודות: מספר בגודל תצוגה אינו נכנס ברוחב של חצי טלפון */
+  .stat { padding: var(--sp-3) var(--sp-4); }
+  .stat-value { font-size: var(--fs-h2); }
+
+  .btn { padding: 0 var(--sp-3); }
+  .btn-sm { padding: 0 10px; }
+  .seg button { padding: 0 10px; }
+
   /* חמש שנים וסוכן בשורה אחת ברוחב טלפון: השנים נמתחות לרוחב הפנוי, כך
      שכולן נראות בלי גלילה אופקית ובלי שהראשונה תיחתך. */
   .fab { display: grid; }
@@ -1865,6 +1876,8 @@ kbd {
     box-shadow: var(--shadow-lg);
     border-inline-start: 0;
     border-inline-end: 1px solid var(--line);
+    border-radius: 0;
+    height: auto;
     padding-top: max(16px, env(safe-area-inset-top, 0px));
   }
   :root:dir(rtl) .sidebar { transform: translateX(100%); }
@@ -1918,6 +1931,7 @@ kbd {
   .view > .sec-actions { order: 3; }
   .view > .sec-charts { order: 4; }
   .view > #sec-tasks { order: 5; }
+  .app { padding: 0; gap: 0; }
   .card-head { padding: 13px 14px; }
   /* בטלפון כותרת ובורר לא נכנסים בשורה אחת, והכותרת נדחסת לעמודה צרה. */
   .card-head:has(.spacer .seg) { flex-wrap: wrap; }

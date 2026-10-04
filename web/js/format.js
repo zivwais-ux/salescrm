@@ -19,8 +19,8 @@ window.Fmt = (function () {
     month: (m) => MONTHS[m - 1] || "",
     monthShort: (m) => SHORT[m - 1] || "",
 
-    money: (v) => `${whole.format(Math.round(v || 0))} ₪`,
-    moneyExact: (v) => `${exact.format(v || 0)} ₪`,
+    money: (v) => `${whole.format(Math.round(v || 0))}\u00a0₪`,
+    moneyExact: (v) => `${exact.format(v || 0)}\u00a0₪`,
     number: (v) => whole.format(v || 0),
 
     /**
@@ -40,10 +40,10 @@ window.Fmt = (function () {
       if (n >= 1e3) return `${(v / 1e3).toFixed(1)} א׳`;
       return String(Math.round(v || 0));
     },
-    shortMoney(v) { return `${this.short(v)} ₪`; },
+    shortMoney(v) { return `${this.short(v)}\u00a0₪`; },
 
     /** סכום עם סימן מפורש — לשימוש בהפרשים */
-    signed(v) { return `${v >= 0 ? "+" : "−"}${whole.format(Math.abs(Math.round(v || 0)))} ₪`; },
+    signed(v) { return `${v >= 0 ? "+" : "−"}${whole.format(Math.abs(Math.round(v || 0)))}\u00a0₪`; },
 
     percent(v, digits = 0) {
       if (v === null || v === undefined || !isFinite(v)) return "—";

@@ -49,7 +49,7 @@ window.Charts = (function () {
    * עמודה שהקצה המעוגל שלה הוא תמיד קצה הנתון, והבסיס ישר.
    * `down` מצייר עמודה שיורדת מקו האפס — שם הקצה נמצא למטה.
    */
-  function columnPath(x, y, w, h, { r = 4, down = false } = {}) {
+  function columnPath(x, y, w, h, { r = 6, down = false } = {}) {
     if (h <= 0.5) return "";
     const radius = Math.min(r, w / 2, h);
     if (down) {
