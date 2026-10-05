@@ -23,6 +23,10 @@
       var dark = pref === "dark" || (pref === "auto"
         && window.matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
+
+      var text = "normal";
+      try { text = localStorage.getItem("beny_text") || "normal"; } catch (e) { /* חסום */ }
+      if (text !== "normal") document.documentElement.dataset.text = text;
     })();
   </script>
 </head>

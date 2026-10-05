@@ -75,14 +75,18 @@
 
   /* סולם טיפוגרפי: שבע מדרגות, יחס ~1.15 בקטנות ו-1.3 בגדולות. המדרגות
      הקטנות צפופות כי שם יושבות התוויות, והקפיצה לכותרת ולמספר היא הצהרה. */
-  --fs-micro:   11px;
-  --fs-label:   12px;
-  --fs-sm:      13px;
-  --fs-body:    14px;
-  --fs-h3:      15px;
-  --fs-h2:      18px;
-  --fs-h1:      24px;
-  --fs-display: 42px;
+  --fs-micro: calc(11px * var(--fs-scale));
+  --fs-label: calc(12px * var(--fs-scale));
+  --fs-sm: calc(13px * var(--fs-scale));
+  --fs-body: calc(14px * var(--fs-scale));
+  --fs-h3: calc(15px * var(--fs-scale));
+  --fs-h2: calc(18px * var(--fs-scale));
+  --fs-h1: calc(24px * var(--fs-scale));
+  --fs-display: calc(42px * var(--fs-scale));
+
+  /* מכפיל גודל הטקסט. כל גודל במערכת נכפל בו, ולכן "טקסט גדול" הוא באמת
+     כל הטקסט — כולל תוויות, תגיות וצירי הגרפים — ולא רק הכותרות. */
+  --fs-scale: 1;
 
   --lh-tight: 1.1;
   --lh-snug:  1.35;
@@ -192,6 +196,12 @@
   color-scheme: dark;
 }
 
+/* ------------------------------------------------------- גודל הטקסט --
+   שלוש מדרגות. ההעדפה נשמרת ונחתמת על ה-HTML, בדיוק כמו הנושא, כך שגם
+   כאן יש נקודת אמת אחת. */
+:root[data-text="large"]  { --fs-scale: 1.125; }
+:root[data-text="xlarge"] { --fs-scale: 1.25; }
+
 /* ---------------------------------------------------------------- reset --- */
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -200,7 +210,7 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   font-family: var(--font);
-  font-size: 14px;
+  font-size: calc(14px * var(--fs-scale));
   line-height: 1.55;
   color: var(--text);
   background: var(--bg);
@@ -267,21 +277,21 @@ svg { display: block; }
 
 /* הלוגו הוא השם עצמו: משקל כבד, ריווח אותיות פתוח, בלי סמל נלווה. */
 .wordmark {
-  font-size: 19px;
+  font-size: calc(19px * var(--fs-scale));
   font-weight: 700;
   letter-spacing: .14em;
   color: var(--text);
   line-height: 1;
 }
-.wordmark.small { font-size: 14px; letter-spacing: .12em; }
-.brand-sub { font-size: 11.5px; color: var(--muted); }
+.wordmark.small { font-size: calc(14px * var(--fs-scale)); letter-spacing: .12em; }
+.brand-sub { font-size: calc(11.5px * var(--fs-scale)); color: var(--muted); }
 
 .nav-fields { display: grid; gap: 8px; padding: 0 10px; }
 .theme-seg { width: 100%; margin-bottom: 4px; }
 .theme-seg button { flex: 1; }
 
 .nav-label {
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--fs-scale));
   font-weight: 600;
   letter-spacing: .06em;
   color: var(--muted);
@@ -328,7 +338,7 @@ svg { display: block; }
 .nav-item.is-active svg { color: var(--accent); }
 .nav-count {
   margin-inline-start: auto;
-  font-size: 11px;
+  font-size: calc(11px * var(--fs-scale));
   font-variant-numeric: tabular-nums;
   color: var(--muted);
   background: var(--surface-2);
@@ -374,13 +384,13 @@ svg { display: block; }
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 36px;
+  height: calc(36px * var(--fs-scale));
   padding: 0 var(--sp-4);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -408,18 +418,18 @@ svg { display: block; }
 .btn-danger:hover { background: var(--down-soft); border-color: var(--down); }
 .btn-danger svg { color: currentColor; }
 
-.btn-sm { height: 30px; padding: 0 var(--sp-3); font-size: 12.5px; border-radius: 999px; }
-.btn-icon { width: 36px; padding: 0; }
-.btn-icon.btn-sm { width: 30px; }
+.btn-sm { height: calc(30px * var(--fs-scale)); padding: 0 var(--sp-3); font-size: calc(12.5px * var(--fs-scale)); border-radius: 999px; }
+.btn-icon { width: calc(36px * var(--fs-scale)); padding: 0; }
+.btn-icon.btn-sm { width: calc(30px * var(--fs-scale)); }
 
 .input, .select {
-  height: 36px;
+  height: calc(36px * var(--fs-scale));
   padding: 0 var(--sp-4);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
   transition: border-color .13s, box-shadow .13s;
   width: 100%;
 }
@@ -451,14 +461,14 @@ svg { display: block; }
 .search .input { padding-inline-start: 34px; }
 
 .field { display: flex; align-items: center; gap: 7px; }
-.field > span { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.field > span { font-size: calc(12px * var(--fs-scale)); color: var(--muted); white-space: nowrap; }
 .field .select, .field .input { width: auto; }
 
 .check {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
   color: var(--text-2);
   cursor: pointer;
   user-select: none;
@@ -474,13 +484,13 @@ svg { display: block; }
   border-radius: 999px;
 }
 .seg button {
-  height: 30px;
+  height: calc(30px * var(--fs-scale));
   padding: 0 var(--sp-3);
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--text-2);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--fs-scale));
   font-weight: 500;
   cursor: pointer;
   transition: background .13s, color .13s;
@@ -500,7 +510,7 @@ svg { display: block; }
 .seg button svg { margin-inline-end: 2px; }
 
 label.stacked { display: grid; gap: 5px; }
-label.stacked > span { font-size: 12px; font-weight: 500; color: var(--text-2); }
+label.stacked > span { font-size: calc(12px * var(--fs-scale)); font-weight: 500; color: var(--text-2); }
 label.stacked textarea {
   min-height: 78px;
   padding: 9px 11px;
@@ -508,7 +518,7 @@ label.stacked textarea {
   border-radius: var(--r);
   background: var(--surface);
   resize: vertical;
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
   line-height: 1.55;
 }
 label.stacked textarea:focus {
@@ -658,7 +668,7 @@ label.stacked textarea:focus {
   border-radius: 99px;
   background: transparent;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--fs-scale));
   line-height: 1;
   cursor: pointer;
   transition: background var(--dur-fast), color var(--dur-fast);
@@ -741,7 +751,7 @@ label.stacked textarea:focus {
   border-radius: 99px;
   background: transparent;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--fs-scale));
   line-height: 1;
   cursor: pointer;
   transition: background .13s, color .13s;
@@ -755,7 +765,7 @@ label.stacked textarea:focus {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  height: 22px;
+  height: calc(22px * var(--fs-scale));
   padding: 0 var(--sp-2);
   border-radius: 99px;
   font-size: var(--fs-micro);
@@ -786,7 +796,7 @@ label.stacked textarea:focus {
 
 /* ----------------------------------------------------------------- tables -- */
 .table-wrap { overflow: auto; max-width: 100%; }
-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: calc(13px * var(--fs-scale)); }
 
 thead th {
   position: sticky;
@@ -814,7 +824,7 @@ td.num, th.num { text-align: start; direction: ltr; }
 th.num { text-align: start; }
 
 .cell-title { font-weight: 550; letter-spacing: -.008em; }
-.cell-sub { font-size: 11.5px; color: var(--muted); font-weight: 400; direction: ltr; text-align: start; }
+.cell-sub { font-size: calc(11.5px * var(--fs-scale)); color: var(--muted); font-weight: 400; direction: ltr; text-align: start; }
 
 .avatar {
   width: 30px;
@@ -823,7 +833,7 @@ th.num { text-align: start; }
   border-radius: 9px;
   display: grid;
   place-items: center;
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
   font-weight: 600;
   background: var(--surface-3);
   color: var(--text-2);
@@ -860,7 +870,7 @@ tbody tr.row-link:hover .grid-table td:first-child { background: var(--surface-2
   direction: ltr;
   text-align: start;
   font-variant-numeric: tabular-nums;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--fs-scale));
   color: var(--text-2);
 }
 .grid-table td.cell.filled input { color: var(--text); font-weight: 500; }
@@ -953,7 +963,7 @@ tfoot td {
 .rank {
   width: 20px;
   flex: none;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--fs-scale));
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -963,7 +973,7 @@ tfoot td {
 .bar-row { display: grid; grid-template-columns: minmax(0, 1fr);
            gap: 6px; padding: 9px 16px; cursor: pointer; }
 .bar-row:hover { background: var(--surface-2); }
-.bar-head { display: flex; align-items: baseline; gap: 10px; font-size: 12.5px; }
+.bar-head { display: flex; align-items: baseline; gap: 10px; font-size: calc(12.5px * var(--fs-scale)); }
 .bar-head .grow { flex: 1; min-width: 0; }
 .bar-track { height: 6px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 99px; transition: width .5s var(--ease); }
@@ -1022,7 +1032,7 @@ tfoot td {
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.drawer-head h2 { font-size: 17px; letter-spacing: -.025em; }
+.drawer-head h2 { font-size: calc(17px * var(--fs-scale)); letter-spacing: -.025em; }
 .drawer-body { padding: 18px 20px 40px; display: grid; gap: 14px; align-content: start; }
 
 .tabs {
@@ -1039,7 +1049,7 @@ tfoot td {
   border: 0;
   background: none;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
   font-weight: 500;
   color: var(--muted);
   cursor: pointer;
@@ -1072,7 +1082,7 @@ tfoot td {
   line-height: 1.5;
   background: var(--text);
   color: var(--bg);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
   font-weight: 500;
   box-shadow: var(--shadow-lg);
   animation: toast-in .24s var(--ease);
@@ -1102,7 +1112,7 @@ tfoot td {
   border: 0;
   border-bottom: 1px solid var(--line);
   padding: 15px 18px;
-  font-size: 15px;
+  font-size: calc(15px * var(--fs-scale));
   background: transparent;
 }
 .palette-input:focus { outline: none; }
@@ -1117,11 +1127,11 @@ tfoot td {
 }
 .palette-row.is-active { background: var(--accent-soft); }
 .palette-row .grow { flex: 1; min-width: 0; }
-.palette-hint { padding: 9px 18px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--muted);
+.palette-hint { padding: 9px 18px; border-top: 1px solid var(--line); font-size: calc(11.5px * var(--fs-scale)); color: var(--muted);
                 display: flex; gap: 12px; }
 kbd {
   font-family: var(--font);
-  font-size: 11px;
+  font-size: calc(11px * var(--fs-scale));
   padding: 1px 5px;
   border: 1px solid var(--line);
   border-bottom-width: 2px;
@@ -1165,7 +1175,7 @@ kbd {
   border-bottom: 1px solid var(--line);
 }
 .chat-head > div { flex: 1; min-width: 0; }
-.chat-title { font-size: 14px; font-weight: 600; }
+.chat-title { font-size: calc(14px * var(--fs-scale)); font-weight: 600; }
 
 .chat-body {
   flex: 1;
@@ -1178,11 +1188,11 @@ kbd {
 
 .chat-intro { display: grid; gap: 14px; }
 .chat-hello { display: grid; gap: 8px; }
-.chat-hello p { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.chat-hello p { font-size: calc(12.5px * var(--fs-scale)); color: var(--muted); line-height: 1.6; }
 
 .bubble {
   border-radius: var(--r-lg);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
   max-width: 100%;
   min-width: 0;
 }
@@ -1201,20 +1211,20 @@ kbd {
   padding: 13px 14px;
 }
 
-.ans-title { font-weight: 650; font-size: 13.5px; margin-bottom: 9px; }
+.ans-title { font-weight: 650; font-size: calc(13.5px * var(--fs-scale)); margin-bottom: 9px; }
 .ans-line {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   padding: 5px 0;
   border-bottom: 1px solid var(--line);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--fs-scale));
   color: var(--text-2);
 }
 .ans-line:last-of-type { border-bottom: 0; }
 .ans-line b { color: var(--text); direction: ltr; flex: none; white-space: nowrap; }
 .ans-line > span { min-width: 0; }
-.ans-note { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 6px 0; }
+.ans-note { font-size: calc(12px * var(--fs-scale)); color: var(--muted); line-height: 1.6; margin: 6px 0; }
 
 /* פריטי גריד מקבלים min-width:auto, ולכן שורה רחבה מרחיבה את כל הרשימה
    מעבר לבועה והסכום נחתך בקצה. */
@@ -1231,7 +1241,7 @@ kbd {
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--fs-scale));
   cursor: pointer;
   text-align: start;
 }
@@ -1246,7 +1256,7 @@ kbd {
   color: var(--text-2);
   border-radius: 99px;
   padding: 6px 12px;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--fs-scale));
   cursor: pointer;
   margin-top: 8px;
   transition: background .13s, border-color .13s, color .13s;
@@ -1274,11 +1284,11 @@ kbd {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background: var(--surface-2);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--fs-scale));
   color: var(--text-2);
 }
 .notice svg { flex: none; margin-top: 1px; color: var(--muted); }
-.notice strong { display: block; color: var(--text); font-size: 13px; margin-bottom: 2px; }
+.notice strong { display: block; color: var(--text); font-size: calc(13px * var(--fs-scale)); margin-bottom: 2px; }
 .notice.warn { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn); }
 .notice.warn svg, .notice.warn strong { color: var(--warn); }
 .notice a { color: var(--accent-text); }
@@ -1292,7 +1302,7 @@ kbd {
   gap: 10px;
   padding: 3px 0;
   cursor: pointer;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--fs-scale));
 }
 .div-row:hover { background: var(--surface-2); border-radius: var(--r-sm); }
 .div-name { min-width: 0; }
@@ -1343,7 +1353,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--fs-scale));
   padding: 5px 2px;
   border-bottom: 1px solid var(--line);
 }
@@ -1372,7 +1382,7 @@ kbd {
 
 /* ------------------------------------------------------------- chart bits -- */
 .chart { width: 100%; display: block; overflow: visible; }
-.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); padding-top: 6px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: calc(11.5px * var(--fs-scale)); color: var(--muted); padding-top: 6px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 9px; height: 9px; border-radius: 3px; }
 
@@ -1395,7 +1405,7 @@ kbd {
 .chart-tip.is-on { opacity: 1; }
 .chart-host { position: relative; }
 
-.hint { font-size: 11.5px; color: var(--muted); }
+.hint { font-size: calc(11.5px * var(--fs-scale)); color: var(--muted); }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 13px; }
 .row-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .toolbar {
@@ -1434,8 +1444,8 @@ kbd {
 }
 
 .agent-field { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
-.agent-field > span { font-size: 12px; color: var(--muted); }
-.agent-field .select { height: 30px; font-size: 12.5px; }
+.agent-field > span { font-size: calc(12px * var(--fs-scale)); color: var(--muted); }
+.agent-field .select { height: 30px; font-size: calc(12.5px * var(--fs-scale)); }
 
 /* ----------------------------------------------------------- מפת עונתיות --
    עוצמה בגוון אחד. הערך כתוב בתא עצמו, ולכן הצבע מוסיף קריאה מהירה במקום
@@ -1450,7 +1460,7 @@ kbd {
 .heat-label {
   display: flex;
   align-items: center;
-  font-size: 12px;
+  font-size: calc(12px * var(--fs-scale));
   font-weight: 600;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
@@ -1458,7 +1468,7 @@ kbd {
 }
 .heat-cell-label {
   text-align: center;
-  font-size: 11px;
+  font-size: calc(11px * var(--fs-scale));
   color: var(--muted);
   padding-bottom: 2px;
 }
@@ -1468,7 +1478,7 @@ kbd {
   min-height: 34px;
   border-radius: var(--r-sm);
   background: var(--heat-0);
-  font-size: 11px;
+  font-size: calc(11px * var(--fs-scale));
   color: var(--heat-ink-low);
   font-variant-numeric: tabular-nums;
   direction: ltr;
@@ -1491,7 +1501,7 @@ kbd {
 /* -------------------------------------------------------- תמהיל הסוכנים -- */
 .mix-years { display: grid; gap: 12px; }
 .mix-row { display: grid; gap: 5px; }
-.mix-head { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.mix-head { display: flex; align-items: baseline; gap: 8px; font-size: calc(12.5px * var(--fs-scale)); }
 .mix-year { font-weight: 650; font-variant-numeric: tabular-nums; direction: ltr; }
 .mix-head .num { margin-inline-start: auto; }
 
@@ -1534,7 +1544,7 @@ kbd {
 }
 .year-pill.is-active .year-pill-bar i { background: var(--accent); }
 .year-pill-label {
-  font-size: 11px;
+  font-size: calc(11px * var(--fs-scale));
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   direction: ltr;
@@ -1563,9 +1573,9 @@ kbd {
    לרוץ על הרשימה במקלדת בלי לחפש אותו. */
 .entry-period { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 /* שם סוכן נערך במקום, בלי טופס נפרד */
-.agent-name { height: 32px; font-size: 13px; font-weight: 550; }
+.agent-name { height: 32px; font-size: calc(13px * var(--fs-scale)); font-weight: 550; }
 .entry-tabs { border: 0; gap: 0; }
-.entry-tabs button { padding: 6px 10px; font-size: 12.5px; }
+.entry-tabs button { padding: 6px 10px; font-size: calc(12.5px * var(--fs-scale)); }
 .month-seg { flex-wrap: wrap; }
 .month-seg button { position: relative; min-width: 46px; }
 .month-dot {
@@ -1592,8 +1602,8 @@ kbd {
 .entry-row:hover { background: var(--surface-2); }
 .entry-row.is-changed { background: var(--accent-soft); }
 .entry-row > .grow { flex: 1; min-width: 0; }
-.entry-name { font-size: 13px; font-weight: 550; }
-.entry-hint { font-size: 11.5px; color: var(--muted); }
+.entry-name { font-size: calc(13px * var(--fs-scale)); font-weight: 550; }
+.entry-hint { font-size: calc(11.5px * var(--fs-scale)); color: var(--muted); }
 .entry-split { flex: none; display: flex; align-items: center; gap: 8px; }
 
 .entry-field { position: relative; flex: none; display: grid; gap: 2px; }
@@ -1606,7 +1616,7 @@ kbd {
   font-weight: 600;
 }
 .entry-row.is-changed .entry-field .input { border-color: var(--accent); }
-.entry-was { font-size: 10.5px; color: var(--muted); direction: ltr; text-align: start; }
+.entry-was { font-size: calc(10.5px * var(--fs-scale)); color: var(--muted); direction: ltr; text-align: start; }
 
 /* סרגל שמירה שמופיע רק כשיש מה לשמור, ונשאר מול העיניים בזמן הגלילה */
 .save-bar {
@@ -1629,7 +1639,7 @@ kbd {
   transition: opacity .16s var(--ease), transform .16s var(--ease);
 }
 .save-bar.is-on { opacity: 1; transform: none; pointer-events: auto; }
-.save-facts { flex: 1; min-width: 200px; font-size: 13px; }
+.save-facts { flex: 1; min-width: 200px; font-size: calc(13px * var(--fs-scale)); }
 .save-bar .row-actions { flex: none; }
 
 /* ---------------------------------------------------------------- משימות --
@@ -1637,9 +1647,9 @@ kbd {
    ודחייה ומחיקה בקצה. הכול בשורה אחת, ובטלפון בשתיים — בלי תפריט נסתר. */
 .composer { padding: 12px 14px; display: grid; gap: 10px; }
 .composer-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.composer-title { flex: 1; min-width: 200px; height: 38px; font-size: 14px; }
+.composer-title { flex: 1; min-width: 200px; height: 38px; font-size: calc(14px * var(--fs-scale)); }
 .composer-opts { gap: 8px; }
-.composer-opts .seg button { font-size: 12px; padding: 0 9px; }
+.composer-opts .seg button { font-size: calc(12px * var(--fs-scale)); padding: 0 9px; }
 
 .sticky-chips {
   position: sticky;
@@ -1655,7 +1665,7 @@ kbd {
   padding: 0 4px;
   border-radius: 99px;
   background: var(--surface-3);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--fs-scale));
   font-weight: 600;
   line-height: 16px;
   text-align: center;
@@ -1710,13 +1720,13 @@ kbd {
 }
 
 .task-main { flex: 1; min-width: 0; display: grid; gap: 4px; }
-.task-title { font-size: 13.5px; font-weight: 550; line-height: 1.4; }
+.task-title { font-size: calc(13.5px * var(--fs-scale)); font-weight: 550; line-height: 1.4; }
 .task-meta {
   display: flex;
   align-items: center;
   gap: 5px 10px;
   flex-wrap: wrap;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--fs-scale));
   color: var(--muted);
 }
 .task-meta > * { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
@@ -1725,7 +1735,7 @@ kbd {
 .task-party:hover { color: var(--accent-text); text-decoration: underline; }
 .task-due.is-late { color: var(--down); font-weight: 600; }
 .task-body {
-  font-size: 12px;
+  font-size: calc(12px * var(--fs-scale));
   color: var(--text-2);
   line-height: 1.5;
   padding-top: 1px;
@@ -1774,7 +1784,7 @@ kbd {
     padding-top: max(8px, env(safe-area-inset-top, 0px));
     gap: 10px;
   }
-  .topbar .wordmark { font-size: 16px; }
+  .topbar .wordmark { font-size: calc(16px * var(--fs-scale)); }
   /* בנייד הכותרת של המסך כבר מופיעה בסרגל התחתון */
   .page-head { display: none; }
 
@@ -1799,23 +1809,23 @@ kbd {
   .entry-row { padding: 10px 14px; gap: 10px; flex-wrap: wrap; }
   .entry-field { flex: 1; min-width: 120px; }
   .entry-field .input { width: 100%; height: 42px; }
-  .month-seg button { min-width: 0; flex: 1; padding: 0 6px; font-size: 12px; }
+  .month-seg button { min-width: 0; flex: 1; padding: 0 6px; font-size: calc(12px * var(--fs-scale)); }
   .month-seg { width: 100%; }
   .entry-period .field { width: 100%; }
   .save-bar { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); padding: 10px 12px; }
-  .save-facts { min-width: 0; font-size: 12px; }
+  .save-facts { min-width: 0; font-size: calc(12px * var(--fs-scale)); }
   .sticky-chips { top: var(--header-h); }
   .task { padding: 12px; gap: 10px; }
   .task-check { width: 30px; height: 30px; }
   .task-tools .btn { height: 32px; }
   .ctxbar { padding: 8px 14px; gap: 8px; }
   .year-seg { flex: 1; min-width: 0; }
-  .year-seg button { flex: 1; min-width: 0; height: 32px; padding: 0 4px; font-size: 12px; }
+  .year-seg button { flex: 1; min-width: 0; height: 32px; padding: 0 4px; font-size: calc(12px * var(--fs-scale)); }
   .agent-field { flex: none; }
-  .agent-field .select { height: 32px; width: 118px; padding-inline: 8px 22px; font-size: 12px; }
+  .agent-field .select { height: 32px; width: 118px; padding-inline: 8px 22px; font-size: calc(12px * var(--fs-scale)); }
   .heat-row { grid-template-columns: 34px repeat(var(--heat-cols), minmax(0, 1fr)); gap: 2px; }
-  .heat-cell { min-height: 30px; font-size: 9.5px; border-radius: 4px; }
-  .heat-cell-label { font-size: 9.5px; }
+  .heat-cell { min-height: 30px; font-size: calc(9.5px * var(--fs-scale)); border-radius: 4px; }
+  .heat-cell-label { font-size: calc(9.5px * var(--fs-scale)); }
 
   /* שטח הנגיעה גדל בלי שהעיגול יגדל: אצבע אינה עכבר, ו-16 פיקסלים אינם יעד. */
   .kpi-help, .stat-help { position: relative; }
@@ -1846,7 +1856,7 @@ kbd {
     border: 0;
     background: none;
     color: var(--muted);
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--fs-scale));
     font-weight: 500;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -1906,8 +1916,8 @@ kbd {
   .btn-icon { width: 40px; padding: 0; }
   .btn-sm { height: 34px; }
   .btn-icon.btn-sm { width: 34px; padding: 0; }
-  .input, .select { height: 42px; font-size: 16px; }   /* 16px מונע זום ב-iOS */
-  .nav-item { padding: 11px 12px; font-size: 15px; }
+  .input, .select { height: 42px; font-size: calc(16px * var(--fs-scale)); }   /* 16px מונע זום ב-iOS */
+  .nav-item { padding: 11px 12px; font-size: calc(15px * var(--fs-scale)); }
   .seg button { height: 34px; }
   .list-row, .list-item { padding: 13px 14px; }
   .tabs button { padding: 12px 13px; }
@@ -1919,9 +1929,9 @@ kbd {
   /* ארבעה מדדים נקראים טוב יותר כשניים בשורה מאשר ארבעה מסכים של גלילה */
   .cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi { padding: 12px 13px; }
-  .kpi-value { font-size: 19px; }
-  .kpi-label { font-size: 11px; }
-  .kpi-foot { font-size: 10.5px; }
+  .kpi-value { font-size: calc(19px * var(--fs-scale)); }
+  .kpi-label { font-size: calc(11px * var(--fs-scale)); }
+  .kpi-foot { font-size: calc(10.5px * var(--fs-scale)); }
 
   /* בטלפון קודם המספר ומי דורש טיפול; הגרפים והמשימות אחריהם. ברירת המחדל
      מוצהרת במפורש, אחרת קטע בלי סימון היה קופץ לפני הכותרת של המסך. */
@@ -1938,6 +1948,11 @@ kbd {
   .card-head:has(.spacer .seg) > .spacer { margin-inline-start: 0; width: 100%; }
   .card-head:has(.spacer .seg) .seg { width: 100%; }
   .card-head:has(.spacer .seg) .seg button { flex: 1; }
+  /* בורר עם חמש שנים, בטקסט מוגדל, ברוחב של 320: במקום למתוח את הכרטיס
+     מעבר למסך הוא נגלל בתוך עצמו. */
+  .card-head .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .card-head .seg::-webkit-scrollbar { display: none; }
+  .card-head .seg button { white-space: nowrap; }
   .card-body { padding: 14px; }
   .toolbar { padding: 12px 14px; }
 
@@ -1989,7 +2004,7 @@ kbd {
                         padding: 0; border: 0; }
   .cards-on-mobile td::before {
     content: attr(data-label);
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--fs-scale));
     color: var(--muted);
   }
   .cards-on-mobile td.cell-main { grid-column: 1 / -1; display: block; padding-bottom: 9px;
@@ -2001,10 +2016,10 @@ kbd {
 }
 
 @media (max-width: 560px) {
-  .hero-value { font-size: 32px; }
+  .hero-value { font-size: calc(32px * var(--fs-scale)); }
   .hero-main { padding: 16px 16px 18px; }
   .drawer-body { padding: 14px 14px 40px; }
-  .div-row { grid-template-columns: minmax(0, 1fr) minmax(80px, 1fr) auto; font-size: 12px; }
+  .div-row { grid-template-columns: minmax(0, 1fr) minmax(80px, 1fr) auto; font-size: calc(12px * var(--fs-scale)); }
   .div-value { min-width: 74px; }
 }
 
@@ -2030,10 +2045,10 @@ kbd {
 }
 .dropzone.is-over .drop-icon { color: var(--accent); }
 .drop-icon { color: var(--muted); line-height: 0; }
-.drop-title { font-size: 16px; font-weight: 650; }
-.drop-sub { color: var(--muted); font-size: 13px; }
+.drop-title { font-size: calc(16px * var(--fs-scale)); font-weight: 650; }
+.drop-sub { color: var(--muted); font-size: calc(13px * var(--fs-scale)); }
 .drop-actions { margin-top: 6px; }
-.drop-note { max-width: 420px; font-size: 12px; }
+.drop-note { max-width: 420px; font-size: calc(12px * var(--fs-scale)); }
 .drop-fallback {
   display: flex;
   align-items: center;
@@ -2041,18 +2056,18 @@ kbd {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 12px;
-  font-size: 12px;
+  font-size: calc(12px * var(--fs-scale));
 }
-.select-sm { height: 28px; padding: 0 7px; font-size: 12px; border-radius: var(--r-sm); }
+.select-sm { height: 28px; padding: 0 7px; font-size: calc(12px * var(--fs-scale)); border-radius: var(--r-sm); }
 .drop-paste { margin-top: 14px; }
 .drop-paste > summary {
   cursor: pointer;
   color: var(--accent-text);
-  font-size: 13px;
+  font-size: calc(13px * var(--fs-scale));
   padding: 6px 2px;
 }
 .drop-paste > textarea { width: 100%; margin-top: 8px; }
-.entry-period.is-fallback { font-size: 12.5px; }
+.entry-period.is-fallback { font-size: calc(12.5px * var(--fs-scale)); }
 kbd {
   display: inline-block;
   min-width: 18px;
@@ -2062,7 +2077,7 @@ kbd {
   border-radius: 5px;
   background: var(--surface);
   font: inherit;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--fs-scale));
   font-weight: 600;
 }
 .visually-hidden {
@@ -2082,9 +2097,9 @@ kbd {
   padding: 4px 16px 14px;
 }
 .plan-fact { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.plan-fact b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.plan-fact b { font-size: calc(19px * var(--fs-scale)); font-variant-numeric: tabular-nums; }
 .plan-block { padding: 12px 16px; border-top: 1px solid var(--line); }
-.plan-block-head { font-size: 12.5px; font-weight: 600; margin-bottom: 8px; }
+.plan-block-head { font-size: calc(12.5px * var(--fs-scale)); font-weight: 600; margin-bottom: 8px; }
 .plan-block-head.down { color: var(--down); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 148px; overflow: auto; }
 .chip {
@@ -2092,7 +2107,7 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
-  font-size: 12px;
+  font-size: calc(12px * var(--fs-scale));
   color: var(--muted);
 }
 .plan-actions {
@@ -2103,11 +2118,11 @@ kbd {
   border-top: 1px solid var(--line);
   flex-wrap: wrap;
 }
-.btn-lg { height: 42px; padding: 0 20px; font-size: 14.5px; }
+.btn-lg { height: 42px; padding: 0 20px; font-size: calc(14.5px * var(--fs-scale)); }
 
 @media (max-width: 560px) {
   .dropzone { padding: 26px 14px 22px; }
-  .drop-title { font-size: 15px; }
+  .drop-title { font-size: calc(15px * var(--fs-scale)); }
   .plan-actions .btn-lg { flex: 1; }
 }
 

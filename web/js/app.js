@@ -88,6 +88,11 @@ window.App = (function () {
           ${[["auto", "אוטומטי"], ["light", "יום"], ["dark", "לילה"]].map(([key, label]) => `
             <button data-theme-set="${key}">${label}</button>`).join("")}
         </div>
+        <div class="nav-label" style="padding-top:10px">גודל טקסט</div>
+        <div class="seg theme-seg" role="group" aria-label="גודל הטקסט">
+          ${TEXT_SIZES.map(([key, label]) => `
+            <button data-text-set="${key}">${label}</button>`).join("")}
+        </div>
         <button class="nav-item" id="export-btn">
           ${UI.icon("download")}<span>ייצוא לאקסל</span>
         </button>
@@ -98,6 +103,8 @@ window.App = (function () {
       if (nav) return go(nav.dataset.nav);
       const theme = e.target.closest("[data-theme-set]");
       if (theme) return setTheme(theme.dataset.themeSet);
+      const text = e.target.closest("[data-text-set]");
+      if (text) return setTextSize(text.dataset.textSet);
       if (e.target.closest("#export-btn")) exportExcel();
     });
   }
@@ -118,6 +125,12 @@ window.App = (function () {
 
     $$("#sidebar [data-theme-set]").forEach((btn) => {
       const on = btn.dataset.themeSet === themePref();
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    });
+
+    $$("#sidebar [data-text-set]").forEach((btn) => {
+      const on = btn.dataset.textSet === textPref();
       btn.classList.toggle("is-active", on);
       btn.setAttribute("aria-pressed", String(on));
     });
@@ -320,6 +333,23 @@ window.App = (function () {
     const pref = themePref();
     const dark = pref === "dark" || (pref === "auto" && media.matches);
     document.documentElement.dataset.theme = dark ? "dark" : "light";
+  }
+
+  /* ------------------------------------------------------- גודל הטקסט
+     אותה מכניקה בדיוק של הנושא: ההעדפה נשמרת, ורק התוצאה נחתמת על ה-HTML.
+     משם מכפיל אחד ב-CSS מגדיל כל גודל במערכת, כולל צירי הגרפים. */
+  const TEXT_SIZES = [["normal", "רגיל"], ["large", "גדול"], ["xlarge", "ענק"]];
+
+  function textPref() {
+    try { return localStorage.getItem(cfg.textKey) || "normal"; } catch (err) { return "normal"; }
+  }
+
+  function setTextSize(pref) {
+    try { localStorage.setItem(cfg.textKey, pref); } catch (err) { /* לא קריטי */ }
+    if (pref === "normal") delete document.documentElement.dataset.text;
+    else document.documentElement.dataset.text = pref;
+    render({ keepScroll: true });
+    toast(`גודל הטקסט: ${(TEXT_SIZES.find((t) => t[0] === pref) || [])[1]}`);
   }
 
   function setTheme(pref) {

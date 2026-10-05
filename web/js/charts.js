@@ -19,6 +19,19 @@ window.Charts = (function () {
   }
 
   /**
+   * גודל טקסט בתוך גרף.
+   *
+   * טקסט ב-SVG אינו יורש את הגדלים של ה-CSS, ולכן בלי זה הגדלת הטקסט
+   * במערכת היתה מדלגת בדיוק על המקום שבו קוראים מספרים — צירי הגרפים
+   * ותוויות העמודות.
+   */
+  function fs(size) {
+    const scale = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--fs-scale")) || 1;
+    return Math.round(size * scale * 10) / 10;
+  }
+
+  /**
    * שלושת הגוונים לסדרות זהות (פילוח לפי סוכן).
    * נלקחו מפלטה מאומתת ונבדקו בשני המצבים מול כל הזוגות: הפרדה לעיוורי צבעים
    * ΔE 9.2 בבהיר ו-9.4 בכהה, מעל סף 8. הגוון הירוק יורד מ-3:1 ניגודיות על רקע
@@ -126,7 +139,7 @@ window.Charts = (function () {
       }));
       if (ratio === 0 || ratio === 0.5 || ratio === 1) {
         svg.appendChild(el("text", {
-          x: 1000 - pad.side + 9, y: y + 4, "font-size": 11.5,
+          x: 1000 - pad.side + 9, y: y + 4, "font-size": fs(11.5),
           fill: color("--muted"), "font-family": "inherit", direction: "ltr",
         }, ratio === 1 ? "0" : Fmt.short(max * (1 - ratio))));
       }
@@ -180,7 +193,7 @@ window.Charts = (function () {
         }));
         if (options.labels) {
           svg.appendChild(el("text", {
-            x: x + barW / 2, y: pad.top + plot.h - barH - 7, "font-size": 11.5,
+            x: x + barW / 2, y: pad.top + plot.h - barH - 7, "font-size": fs(11.5),
             fill: color("--text-2"), "text-anchor": "middle", "font-family": "inherit",
             "font-weight": 600, direction: "ltr", style: "pointer-events:none",
           }, Fmt.short(value)));
@@ -188,7 +201,7 @@ window.Charts = (function () {
       });
 
       svg.appendChild(el("text", {
-        x: right - slot / 2, y: height - 8, "font-size": 11.5,
+        x: right - slot / 2, y: height - 8, "font-size": fs(11.5),
         fill: color("--muted"), "text-anchor": "middle", "font-family": "inherit",
       }, label));
     });
@@ -263,7 +276,7 @@ window.Charts = (function () {
       svg.appendChild(hot);
 
       svg.appendChild(el("text", {
-        x: xAt(i), y: height - 8, "font-size": 11.5, fill: color("--muted"),
+        x: xAt(i), y: height - 8, "font-size": fs(11.5), fill: color("--muted"),
         "text-anchor": "middle", "font-family": "inherit",
       }, label));
     });
@@ -301,7 +314,7 @@ window.Charts = (function () {
       }));
       if (ratio === 0 || ratio === 1) {
         svg.appendChild(el("text", {
-          x: 1000 - pad.side + 9, y: y + 4, "font-size": 11.5, fill: color("--muted"),
+          x: 1000 - pad.side + 9, y: y + 4, "font-size": fs(11.5), fill: color("--muted"),
           "font-family": "inherit", direction: "ltr",
         }, Fmt.short(ratio === 1 ? min : max)));
       }
@@ -315,7 +328,7 @@ window.Charts = (function () {
         stroke: color("--line"), "stroke-width": 1, "shape-rendering": "crispEdges",
       }));
       svg.appendChild(el("text", {
-        x: xAt(i) - 6, y: height - 10, "font-size": 11.5, fill: color("--muted"),
+        x: xAt(i) - 6, y: height - 10, "font-size": fs(11.5), fill: color("--muted"),
         "text-anchor": "end", "font-family": "inherit", direction: "ltr",
       }, String(p.year)));
     });
@@ -524,6 +537,6 @@ window.Charts = (function () {
     </table></div>`;
   }
 
-  return { bars, cumulative, trend, heatmap, diverging, stacked, sparkline, ranking,
+  return { bars, cumulative, trend, heatmap, diverging, stacked, sparkline, ranking, fs,
            table, series, color, columnPath };
 })();

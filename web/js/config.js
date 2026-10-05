@@ -6,4 +6,5 @@ window.APP_CONFIG = {
   xlsxCdn: "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
   storageKey: "gadot_sales_crm_v1",
   themeKey: "beny_theme",
+  textKey: "beny_text",
 };
