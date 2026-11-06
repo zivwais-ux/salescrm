@@ -72,6 +72,29 @@ async function run(browser, url) {
     notes.push("איחוד לקוחות שומר על סך המחזור ✓");
   }
 
+  /* --- הפסיקה לפי ההיסטוריה של הלקוח עצמו עומדת בכללים שהיא מצהירה עליהם --- */
+  const verdicts = await page.evaluate(() => {
+    const view = Metrics.overview({ year: App.ctx.year, agent: "all" });
+    const out = { counts: {}, broken: [], mute: [] };
+    view.customers.filter((c) => !c.isBucket).forEach((c) => {
+      const b = Metrics.baseline(c.no, { year: App.ctx.year, cmpMonths: view.cmpMonths });
+      out.counts[b.verdict] = (out.counts[b.verdict] || 0) + 1;
+      if (b.verdict === "anomaly" && !(b.changePct <= -10)) out.broken.push(c.name);
+      if ((b.verdict === "anomaly" || b.verdict === "volatile") && !b.why) out.mute.push(c.name);
+    });
+    return out;
+  });
+  if (verdicts.broken.length) {
+    problems.push(`חריגה שאינה ירידה: ${verdicts.broken.slice(0, 3).join(", ")}`);
+  }
+  if (verdicts.mute.length) {
+    problems.push(`פסיקה בלי הסבר: ${verdicts.mute.slice(0, 3).join(", ")}`);
+  }
+  if (!verdicts.broken.length && !verdicts.mute.length) {
+    notes.push(`פסיקה: ${Object.entries(verdicts.counts)
+      .map(([k, v]) => `${k} ${v}`).join(" · ")} — כל אחת עם הסבר ✓`);
+  }
+
   problems.push(...page.errors.map((e) => `שגיאת דף: ${e}`));
   await page.context().close();
   return { name: "נתונים", problems, notes };
