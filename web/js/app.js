@@ -6,7 +6,7 @@ window.App = (function () {
   const cfg = window.APP_CONFIG;
   const ctx = { year: null, agent: "all", view: "dashboard" };
 
-  // שבעה מסכים, ארבעה מהם בסרגל התחתון בנייד. ה"תפריט" מחזיק את השאר.
+  // שמונה מסכים, ארבעה מהם בסרגל התחתון בנייד. ה"תפריט" מחזיק את השאר.
   // `period` מסמן מסך שקורא את השנה הנבחרת — רק שם מוצג בורר השנה.
   const NAV = [
     { id: "dashboard", label: "בית", icon: "dashboard", view: () => ViewDashboard,
@@ -19,6 +19,8 @@ window.App = (function () {
       title: "הזנת מכירות", tab: true },
     { id: "activity", label: "משימות", icon: "activity", view: () => ViewActivity,
       title: "משימות" },
+    { id: "report", label: "דוח חודשי", icon: "file", view: () => ViewReport,
+      title: "דוח חודשי", period: true },
     { id: "grid", label: "טבלת חודשים", icon: "grid", view: () => ViewGrid,
       title: "טבלת חודשים", period: true },
     { id: "settings", label: "נתונים וקבצים", icon: "settings", view: () => ViewSettings,
@@ -314,7 +316,12 @@ window.App = (function () {
     // מעבר המסך מצויר על ידי הדפדפן עצמו, ולכן הוא חלק גם כשהמסך כבד.
     // מי שביקש פחות תנועה מקבל החלפה מיידית.
     if (transition && document.startViewTransition && !reducedMotion()) {
-      document.startViewTransition(paint);
+      // מעבר שנקטע באמצע (סיבוב מכשיר, שינוי גודל חלון) דוחה את ההבטחה שלו.
+      // זו אינה תקלה — המסך כבר צויר — ולכן היא נבלעת כאן ולא נזרקת החוצה.
+      const t = document.startViewTransition(paint);
+      if (t) ["ready", "finished", "updateCallbackDone"].forEach((k) => {
+        if (t[k] && t[k].catch) t[k].catch(() => {});
+      });
     } else {
       paint();
     }

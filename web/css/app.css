@@ -2238,3 +2238,148 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ============================================================== דוח חודשי
+   המסך היחיד שנועד לצאת מהאתר. על המסך הוא נראה כמו דף נייר על שולחן;
+   בהדפסה הוא הופך להיות הדף עצמו — בלי ניווט, בלי כפתורים, תמיד בהיר. */
+.report-bar {
+  display: flex; align-items: center; gap: var(--sp-4);
+  flex-wrap: wrap; margin-bottom: var(--sp-5);
+}
+.report-bar .spacer { margin-inline-start: auto; }
+.report-bar .field { min-width: 0; }
+.report-bar .field .select { min-width: 0; }
+
+/* במסך צר הבורר והכפתור מקבלים שורה מלאה כל אחד, והרמז נושר —
+   הוא עוזר על המחשב ורק דוחף את השורה הצידה על טלפון. */
+@media (max-width: 560px) {
+  .report-bar { display: grid; gap: var(--sp-3); }
+  .report-bar .spacer { margin-inline-start: 0; }
+  .report-bar .field { display: grid; gap: 4px; }
+  .report-bar .field .select { width: 100%; }
+  .report-bar .hint { display: none; }
+  .report-bar .btn { width: 100%; justify-content: center; }
+}
+
+.report {
+  background: var(--surface);
+  border: 1px solid var(--card-bd);
+  border-radius: var(--r-lg);
+  box-shadow: var(--card-ring), var(--card-el);
+  padding: var(--sp-7);
+  max-width: 960px;
+}
+
+.report-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--sp-5); padding-bottom: var(--sp-5);
+  border-bottom: 2px solid var(--ink);
+}
+.report-title {
+  font-size: calc(21px * var(--fs-scale));
+  font-weight: var(--fw-bold); letter-spacing: var(--track-tight);
+}
+.report-brand { font-size: calc(14px * var(--fs-scale)); font-weight: var(--fw-semibold); }
+.report-sub { font-size: calc(12.5px * var(--fs-scale)); color: var(--muted); margin-top: 3px; }
+.report-stamp { text-align: start; }
+
+.report-lead {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-5); padding: var(--sp-6) 0;
+  border-bottom: 1px solid var(--line);
+}
+.report-lead-label {
+  font-size: calc(11.5px * var(--fs-scale)); color: var(--muted);
+  letter-spacing: var(--track-wide);
+}
+.report-lead-value {
+  font-size: calc(26px * var(--fs-scale)); font-weight: var(--fw-bold);
+  letter-spacing: var(--track-tight); line-height: var(--lh-tight); margin-top: 4px;
+}
+.report-lead-note {
+  font-size: calc(12.5px * var(--fs-scale)); color: var(--muted); margin-top: 4px;
+}
+
+.report-section { padding-top: var(--sp-6); }
+.report-section h2 {
+  font-size: calc(15px * var(--fs-scale)); font-weight: var(--fw-semibold);
+  letter-spacing: var(--track-tight);
+}
+.report-section h3 {
+  font-size: calc(12.5px * var(--fs-scale)); font-weight: var(--fw-semibold);
+  color: var(--muted); margin-bottom: var(--sp-2);
+}
+.report-note {
+  font-size: calc(12.5px * var(--fs-scale)); color: var(--muted);
+  margin-top: 3px; line-height: var(--lh-normal);
+}
+.report-section h2 + .report-note { margin-bottom: var(--sp-3); }
+/* minmax(0,1fr) ולא 1fr: בלעדיו רוחב העמודה נקבע לפי התוכן הצר ביותר האפשרי
+   של הטבלה שבתוכה, והעמוד כולו נדחף הצידה. */
+.report-cols {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5);
+}
+.report-cols > * { min-width: 0; }
+
+.report-scroll { overflow-x: auto; margin-top: var(--sp-3); }
+.report-table { width: 100%; border-collapse: collapse; }
+.report-table th, .report-table td {
+  text-align: start; padding: 7px 8px;
+  font-size: calc(12.5px * var(--fs-scale));
+  border-bottom: 1px solid var(--line);
+}
+.report-table th {
+  font-weight: var(--fw-semibold); color: var(--muted);
+  border-bottom-width: 1.5px; white-space: nowrap;
+}
+.report-table td.num, .report-table th.num { text-align: end; font-variant-numeric: tabular-nums; }
+.report-table tbody tr:last-child td { border-bottom: none; }
+.report-table .up { color: var(--up); font-variant-numeric: tabular-nums; }
+.report-table .down { color: var(--down); font-variant-numeric: tabular-nums; }
+
+.report-foot {
+  margin-top: var(--sp-7); padding-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+  font-size: calc(11px * var(--fs-scale)); color: var(--muted);
+  line-height: var(--lh-normal);
+}
+
+@media (max-width: 760px) {
+  .report { padding: var(--sp-5); }
+  .report-head { flex-direction: column; }
+  .report-lead { grid-template-columns: 1fr; gap: var(--sp-4); }
+  .report-cols { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* -------------------------------------------------------------- הדפסה --
+   הדף מודפס בהיר תמיד, גם כשהאתר במצב לילה: צבעי הדיו של המערכת נדרסים
+   כאן לשחור על לבן, כי זה מה שיוצא נכון במדפסת ובהמרה ל-PDF. */
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+
+  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --bg: #fff; --surface: #fff; --ink: #111; --muted: #4a4a4a;
+    --line: #c9c9c9; --card-bd: transparent; --card-ring: none; --card-el: none;
+  }
+
+  html, body { background: #fff !important; }
+  body { color: #111; }
+
+  .sidebar, .topbar, .ctxbar, .tabbar,
+  #chat-root, #drawer-root, #palette-root, .toast-stack,
+  .no-print, .remind { display: none !important; }
+
+  .app, .main, .view { display: block; margin: 0; padding: 0; max-width: none; }
+
+  .report {
+    border: none; box-shadow: none; padding: 0; max-width: none;
+  }
+  .report-section, .report-table { break-inside: auto; }
+  .report-section h2, .report-section h3 { break-after: avoid; }
+  .report-scroll { overflow: visible; }
+  .report-table thead { display: table-header-group; }
+  .report-table tr { break-inside: avoid; }
+  .report-lead { padding-top: var(--sp-4); }
+  .up { color: #0a6b3d; }
+  .down { color: #9b1c1c; }
+}

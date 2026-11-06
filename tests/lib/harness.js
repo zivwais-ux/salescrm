@@ -77,7 +77,8 @@ async function launch() {
   return chromium.launch({ executablePath: chromiumPath(), args: ["--no-sandbox"] });
 }
 
-const VIEWS = ["dashboard", "trend", "customers", "entry", "activity", "grid", "settings"];
+const VIEWS = ["dashboard", "trend", "customers", "entry", "activity", "report", "grid",
+               "settings"];
 
 /** פותח עמוד, אוסף שגיאות, ומחזיר אותו מוכן לעבודה. */
 async function open(browser, url, { width = 1440, height = 950, theme = "light",
