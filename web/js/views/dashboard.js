@@ -20,6 +20,49 @@ window.ViewDashboard = (function () {
   const today = () => new Date().toISOString().slice(0, 10);
   const isPhone = () => window.innerWidth <= 1000;
 
+  /* ------------------------------------------------- תזכורת העדכון
+     האתר יודע עד איזה חודש יש לו נתונים ויודע מה התאריך היום, ולכן אין
+     סיבה שהמשתמש ייזכר לבד. התזכורת מופיעה רק כשחודש באמת נסגר ולא עודכן,
+     ואפשר לסגור אותה — אבל היא תחזור כשייסגר החודש הבא. */
+  const DISMISS_KEY = "beny_remind_v1";
+
+  function dismissed() {
+    try { return localStorage.getItem(DISMISS_KEY) || ""; } catch (err) { return ""; }
+  }
+
+  function updateBanner() {
+    const missing = Store.missingMonths();
+    if (!missing.length) return "";
+
+    // בימים הראשונים של החודש הדוח על הקודם עדיין לא מופק, ותזכורת בשלב הזה
+    // היא רעש. מהיום הרביעי ואילך היא כבר במקומה.
+    const now = new Date();
+    if (missing.length === 1 && now.getDate() <= 3) return "";
+
+    const last = missing[missing.length - 1];
+    const tag = `${last.year}-${last.month}`;
+    if (dismissed() === tag) return "";
+
+    const names = missing.map((m) => `${Fmt.month(m.month)} ${m.year}`);
+    const title = missing.length === 1
+      ? `${names[0]} הסתיים ועדיין לא עודכן`
+      : `${Fmt.number(missing.length)} חודשים לא עודכנו · ${names[0]} עד ${
+          names[names.length - 1]}`;
+
+    return `<section class="remind" data-remind="${tag}">
+      <span class="remind-icon">${UI.icon("clock", 18)}</span>
+      <div class="grow">
+        <div class="remind-title">${title}</div>
+        <div class="remind-sub">מייצאים את החודש מה-ERP וגוררים אותו למסך ההזנה —
+          כל המספרים באתר יתעדכנו.</div>
+      </div>
+      <button class="btn btn-primary" data-goto="entry">${
+        UI.icon("upload", 15)} עדכון מקובץ</button>
+      <button class="btn btn-icon btn-ghost" data-dismiss-remind="${tag}"
+              aria-label="סגירת התזכורת">${UI.icon("close", 16)}</button>
+    </section>`;
+  }
+
   /* ------------------------------------------------------- רצועה 1: המצב */
 
   /**
@@ -270,6 +313,8 @@ window.ViewDashboard = (function () {
                     ...view.shrinking.slice(0, 6)].sort((a, b) => b.delta - a.delta);
 
     root.innerHTML = `
+      ${updateBanner()}
+
       <section class="hero sec-hero">
         <div class="hero-main">
           <div class="hero-label">מכירות ${view.year} · ${period}</div>
@@ -413,6 +458,12 @@ window.ViewDashboard = (function () {
     UI.on(root, "[data-goto]", "click", (e) => {
       e.stopPropagation();
       App.go(e.currentTarget.dataset.goto);
+    });
+    UI.on(root, "[data-dismiss-remind]", "click", (e) => {
+      e.stopPropagation();
+      try { localStorage.setItem(DISMISS_KEY, e.currentTarget.dataset.dismissRemind); }
+      catch (err) { /* אחסון חסום — התזכורת פשוט תופיע שוב */ }
+      render(root, ctx);
     });
     UI.on(root, "[data-help]", "click", (e) => {
       e.stopPropagation();

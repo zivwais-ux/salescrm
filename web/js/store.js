@@ -271,6 +271,40 @@ window.Store = (function () {
                agent: best ? best.agent : defaultAgent() };
     },
 
+    /**
+     * חודשים שהסתיימו בלוח השנה ואין להם נתונים.
+     *
+     * הבסיס לתזכורת העדכון. החודש הנוכחי לעולם אינו נספר — הוא עדיין רץ,
+     * והדוח עליו ממילא יהיה חלקי. הספירה מתחילה מהחודש האחרון שיש לו נתונים
+     * ומטפסת עד החודש האחרון שנסגר, כך שגם פער של כמה חודשים נאמר במלואו.
+     */
+    missingMonths(today = new Date()) {
+      const years = api.years();
+      if (!years.length) return [];
+
+      let endYear = today.getFullYear();
+      let endMonth = today.getMonth();      // 0–11 של החודש הנוכחי = מספרו של הקודם
+      if (endMonth === 0) {                 // בינואר, החודש האחרון שנסגר הוא דצמבר
+        endYear -= 1;
+        endMonth = 12;
+      }
+
+      const lastYear = years[years.length - 1];
+      let year = lastYear;
+      let month = api.closedMonth(lastYear);
+      const out = [];
+      while (out.length < 12) {
+        month += 1;
+        if (month > 12) {
+          month = 1;
+          year += 1;
+        }
+        if (year > endYear || (year === endYear && month > endMonth)) break;
+        out.push({ year, month });
+      }
+      return out;
+    },
+
     /** סיכומי הבקרה כפי שהודפסו בדוח המקורי, לפי שנה. */
     control: (year) => ((window.GADOT_DATASET.control || {})[String(year)] || null),
 

@@ -11,13 +11,14 @@ const { serve, launch, chromiumPath } = require("./lib/harness");
 
 const CHECKS = [
   require("./checks/data"),
+  require("./checks/reminder"),
   require("./checks/behaviour"),
   require("./checks/layout"),
   require("./checks/a11y"),
   require("./checks/textsize"),
 ];
 
-const NAMES = ["נתונים", "התנהגות", "פריסה", "נגישות", "גודל טקסט"];
+const NAMES = ["נתונים", "תזכורת", "התנהגות", "פריסה", "נגישות", "גודל טקסט"];
 
 (async () => {
   const only = process.argv.slice(2).filter((a) => !a.startsWith("-"));

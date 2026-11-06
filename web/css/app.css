@@ -629,6 +629,32 @@ label.stacked textarea:focus {
              margin-top: var(--sp-2); }
 .hero-chart { padding: var(--sp-4) var(--sp-4) var(--sp-3); min-width: 0; }
 
+/* ---------------------------------------------------- תזכורת העדכון --
+   רצועה בגוון המותג מעל כל השאר: היא אינה אזהרה אלא הזמנה לפעולה, ולכן
+   היא לובשת את צבע הפעולה ולא את צבע הסכנה. */
+.remind {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-lg);
+}
+.remind > .grow { flex: 1; min-width: 0; }
+.remind-icon { display: grid; place-items: center; flex: none;
+               width: calc(36px * var(--fs-scale)); height: calc(36px * var(--fs-scale));
+               border-radius: 999px; background: var(--surface); color: var(--accent-text); }
+.remind-title { font-size: var(--fs-h3); font-weight: var(--fw-semi);
+                color: var(--accent-text); letter-spacing: var(--track-tight); }
+.remind-sub { font-size: var(--fs-label); color: var(--text-2); line-height: var(--lh-snug); }
+
+@media (max-width: 1000px) {
+  .remind { flex-wrap: wrap; gap: var(--sp-3); }
+  .remind > .grow { flex: 1 1 60%; }
+  .remind .btn-primary { flex: 1 1 100%; order: 3; }
+}
+
 /* ------------------------------------------------------- מסילת המדדים --
    ארבעה מספרים על משטח אחד, מופרדים בקו ולא במרווח. הם עונים יחד על שאלה
    אחת, ולכן הם נקראים כאובייקט אחד ולא כארבע קופסאות. */
