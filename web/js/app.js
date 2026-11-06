@@ -289,7 +289,10 @@ window.App = (function () {
    * `keepScroll` — להישאר במקום; לשינוי שנה או סוכן, שבו התוכן מתחלף
    *                מתחת לאותה נקודת מבט ואין סיבה לזרוק את הקורא למעלה.
    */
-  function render({ transition = false, scroll = null, keepScroll = false } = {}) {
+  function render({ transition = false, scroll = null, keepScroll = false,
+                    quiet = false } = {}) {
+    // ציור שנגרם משינוי בנתונים אינו כניסה למסך, ולכן הגרפים בו שקטים.
+    Charts.setMotion(!quiet);
     const years = Store.years();
     if (!ctx.year || !years.includes(ctx.year)) ctx.year = years[years.length - 1];
 
@@ -1111,7 +1114,7 @@ window.App = (function () {
 
     // כל שינוי בנתונים מצייר מחדש את המסך הפעיל ואת כרטיס הלקוח הפתוח.
     // שינוי נתונים אינו ניווט: הקורא נשאר במקום שבו היה.
-    Store.onChange(() => render({ keepScroll: true }));
+    Store.onChange(() => render({ keepScroll: true, quiet: true }));
     render();
 
     // דוח חדש שנכנס לנתונים ששמורים במכשיר — נאמר במפורש, אחרת המספרים

@@ -43,6 +43,40 @@ window.Charts = (function () {
                  : ["#2a78d6", "#eb6834", "#1baf7a", "#9aa1af"])[index % 4];
   }
 
+  /* --------------------------------------------------------------- תנועה
+     גרף שנכנס למסך מצויר, לא מונח. הצורה גדלה מהבסיס שלה והקו נמשך
+     מקצהו, כך שהעין רואה את הכיוון לפני שהיא קוראת את המספרים.
+
+     הכול נעשה ב-CSS: הקוד כאן רק מסמן מה זז ומתי. ההשהיה המדורגת נשמרת
+     קצרה — חצי שנייה לכל הגרף — כי זו כניסה, לא הצגה. מי שביקש פחות
+     תנועה במערכת ההפעלה מקבל את הגרף מיד, דרך הכלל הגורף ב-app.css. */
+  const STEP = 26;          // השהיה בין סימן לסימן, במילישניות
+  const STEP_MAX = 420;     // ומעבר לזה כולם נכנסים יחד
+
+  /* שינוי בנתונים עצמם (סימון משימה כבוצעה, ביטול, עריכה) מצייר את המסך
+     מחדש — אבל הוא אינו כניסה אליו, ולכן הגרפים לא ירוצו שוב. תנועה שחוזרת
+     על כל לחיצה מפסיקה להיות מידע והופכת להפרעה. */
+  let motion = true;
+  const setMotion = (on) => { motion = on !== false; };
+
+  function enter(node, kind, index = 0) {
+    if (!motion) return node;
+    node.classList.add(kind);
+    const delay = Math.min(index * STEP, STEP_MAX);
+    if (delay) node.style.setProperty("--d", `${delay}ms`);
+    return node;
+  }
+
+  /** משיכת קו: אורך המסלול ידוע רק אחרי שהוא בעץ, ולכן זה נקרא בסוף. */
+  function drawLines(svg) {
+    if (!motion) return;
+    svg.querySelectorAll("path.draw").forEach((path) => {
+      const len = Math.ceil(path.getTotalLength());
+      if (!len) return;
+      path.style.setProperty("--len", len);
+    });
+  }
+
   function el(name, attrs = {}, text) {
     const node = document.createElementNS(NS, name);
     Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v));
@@ -185,18 +219,18 @@ window.Charts = (function () {
         const barH = value > 0 ? Math.max(2, (value / max) * plot.h) : 0;
         if (!barH) return;
         const x = startX + si * (barW + GAP);
-        svg.appendChild(el("path", {
+        svg.appendChild(enter(el("path", {
           d: columnPath(x, pad.top + plot.h - barH, barW, barH),
           // צבע לעמודה בודדת מאפשר להדגיש אחת מתוך סדרה — למשל השנה הנבחרת
           // מול שאר השנים, שהן הרקע שלה ולא סדרה נפרדת.
           fill: s.colorAt ? s.colorAt(i) : s.color, style: "pointer-events:none",
-        }));
+        }), "rise", i));
         if (options.labels) {
-          svg.appendChild(el("text", {
+          svg.appendChild(enter(el("text", {
             x: x + barW / 2, y: pad.top + plot.h - barH - 7, "font-size": fs(11.5),
             fill: color("--text-2"), "text-anchor": "middle", "font-family": "inherit",
             "font-weight": 600, direction: "ltr", style: "pointer-events:none",
-          }, Fmt.short(value)));
+          }, Fmt.short(value)), "fade", i));
         }
       });
 
@@ -242,24 +276,25 @@ window.Charts = (function () {
       const d = s.points.map((v, i) => (
         `${i ? "L" : "M"}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`)).join(" ");
       if (s.fill) {
-        svg.appendChild(el("path", {
+        svg.appendChild(enter(el("path", {
           d: `${d} L${xAt(s.points.length - 1).toFixed(1)},${pad.top + plot.h} `
            + `L${xAt(0).toFixed(1)},${pad.top + plot.h} Z`,
           fill: s.color, opacity: .10,
-        }));
+        }), "wash"));
       }
-      svg.appendChild(el("path", {
+      svg.appendChild(enter(el("path", {
         d, fill: "none", stroke: s.color, "stroke-width": 2,
         "stroke-linejoin": "round", "stroke-linecap": "round",
         "stroke-dasharray": s.dashed ? "5 5" : "",
         "vector-effect": "non-scaling-stroke",
-      }));
+      // קו מקווקו כבר משתמש ב-dasharray, ולכן הוא נדלק ולא נמשך.
+      }), s.dashed ? "wash" : "draw"));
       const last = s.points.length - 1;
       // טבעת בצבע הרקע, כדי שהנקודה תישאר קריאה גם כששני הקווים נחתכים.
-      svg.appendChild(el("circle", {
+      svg.appendChild(enter(el("circle", {
         cx: xAt(last), cy: yAt(s.points[last]), r: 4.5, fill: s.color,
         stroke: color("--surface"), "stroke-width": 2,
-      }));
+      }), "pop"));
     });
 
     labels.forEach((label, i) => {
@@ -282,6 +317,7 @@ window.Charts = (function () {
     });
 
     host.prepend(svg);
+    drawLines(svg);
     if (options.legend !== false && lines.length > 1) {
       legend(host, lines.map((s) => ({ label: s.label, color: s.color })));
     }
@@ -340,19 +376,19 @@ window.Charts = (function () {
       path += `${open ? "L" : "M"}${xAt(i).toFixed(1)},${yAt(p.value).toFixed(1)} `;
       open = true;
     });
-    svg.appendChild(el("path", {
+    svg.appendChild(enter(el("path", {
       d: path, fill: "none", stroke: options.color || color("--accent"), "stroke-width": 2,
       "stroke-linejoin": "round", "stroke-linecap": "round",
       "vector-effect": "non-scaling-stroke",
-    }));
+    }), "draw"));
 
     const last = points.length - 1;
     if (points[last] && points[last].value != null) {
-      svg.appendChild(el("circle", {
+      svg.appendChild(enter(el("circle", {
         cx: xAt(last), cy: yAt(points[last].value), r: 4.5,
         fill: options.color || color("--accent"),
         stroke: color("--surface"), "stroke-width": 2,
-      }));
+      }), "pop"));
     }
 
     const cursor = el("line", {
@@ -387,6 +423,7 @@ window.Charts = (function () {
     });
     svg.appendChild(hot);
     host.prepend(svg);
+    drawLines(svg);
   }
 
   /**
@@ -408,12 +445,14 @@ window.Charts = (function () {
         <span class="heat-label"></span>
         ${labels.map((l) => `<span class="heat-cell-label">${Fmt.escape(l)}</span>`).join("")}
       </div>
-      ${rows.map((row) => `
+      ${rows.map((row, ri) => `
         <div class="heat-row">
           <span class="heat-label">${Fmt.escape(row.label)}</span>
           ${row.values.map((v, i) => {
             const empty = v === null || v === undefined;
-            return `<span class="heat-cell l${empty ? 0 : level(v)}"
+            return `<span class="heat-cell ${motion ? "wash" : ""} l${
+              empty ? 0 : level(v)}"
+              style="--d:${Math.min((ri * 3 + i) * 14, 420)}ms"
               data-row="${Fmt.escape(row.label)}" data-col="${Fmt.escape(labels[i])}"
               data-value="${empty ? "" : Fmt.money(v)}"
               title="${Fmt.escape(`${row.label} · ${labels[i]}`)}: ${
@@ -438,7 +477,7 @@ window.Charts = (function () {
    */
   function diverging(host, items) {
     const max = Math.max(1, ...items.map((i) => Math.abs(i.value)));
-    host.innerHTML = `<div class="div-chart">${items.map((item) => {
+    host.innerHTML = `<div class="div-chart">${items.map((item, index) => {
       const pct = (Math.abs(item.value) / max) * 50;
       const positive = item.value >= 0;
       return `<div class="div-row" data-no="${Fmt.escape(item.no || "")}"
@@ -446,8 +485,8 @@ window.Charts = (function () {
         <span class="div-name ellipsis">${Fmt.escape(item.label)}</span>
         <span class="div-track">
           <span class="div-axis"></span>
-          <span class="div-bar ${positive ? "pos" : "neg"}"
-                style="width:${pct.toFixed(2)}%"></span>
+          <span class="div-bar ${motion ? "grow-x" : ""} ${positive ? "pos" : "neg"}"
+                style="width:${pct.toFixed(2)}%;--d:${Math.min(index * 26, 420)}ms"></span>
         </span>
         <span class="div-value ${positive ? "up" : "down"}">${Fmt.signed(item.value)}</span>
       </div>`;
@@ -467,8 +506,9 @@ window.Charts = (function () {
     bar.className = "stack-bar";
     bar.innerHTML = items.map((item, i) => {
       const pct = (item.value / total) * 100;
-      return `<div class="stack-seg" style="width:${pct}%;background:${
-        item.color || series(i)}" title="${Fmt.escape(item.name)}"></div>`;
+      return `<div class="stack-seg ${motion ? "grow-x" : ""}" style="width:${pct}%;background:${
+        item.color || series(i)};--d:${Math.min(i * 60, 420)}ms"
+        title="${Fmt.escape(item.name)}"></div>`;
     }).join("");
 
     const rows = document.createElement("div");
@@ -520,8 +560,8 @@ window.Charts = (function () {
             item.display || Fmt.money(item.value)}</span>
         </div>
         <div class="bar-track">
-          <div class="bar-fill" style="width:${pct.toFixed(1)}%;background:${
-            options.color || "var(--accent)"}"></div>
+          <div class="bar-fill ${motion ? "grow-x" : ""}" style="width:${pct.toFixed(1)}%;background:${
+            options.color || "var(--accent)"};--d:${Math.min(i * 26, 420)}ms"></div>
         </div>
       </div>`;
     }).join("") || UI.empty("אין נתונים להצגה", "");
@@ -537,6 +577,7 @@ window.Charts = (function () {
     </table></div>`;
   }
 
-  return { bars, cumulative, trend, heatmap, diverging, stacked, sparkline, ranking, fs,
+  return { setMotion,
+           bars, cumulative, trend, heatmap, diverging, stacked, sparkline, ranking, fs,
            table, series, color, columnPath };
 })();

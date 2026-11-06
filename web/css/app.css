@@ -2381,6 +2381,8 @@ kbd {
   .report-section, .report-table { break-inside: auto; }
   .report-section h2, .report-section h3 { break-after: avoid; }
   .report-scroll { overflow: visible; }
+  /* על נייר אין כניסה: כל סימן מודפס במצבו הסופי. */
+  .chart *, .grow-x, .heat-cell { animation: none !important; }
   .report-table thead { display: table-header-group; }
   .report-table tr { break-inside: avoid; }
   .report-lead { padding-top: var(--sp-4); }
@@ -2417,3 +2419,54 @@ kbd {
 
 /* טקסט על הגרפים הוא מספרים ושנים כמעט תמיד, ולכן אותו גופן. */
 svg text { font-family: var(--font-num); }
+
+/* ========================================================== תנועת הגרפים
+   גרף נכנס למסך מצויר ולא מונח: עמודה גדלה מהבסיס, קו נמשך מקצהו, תא
+   נדלק. התנועה היא כיוון הקריאה של הצורה עצמה — לא אפקט שהולבש עליה —
+   ולכן היא קצרה, רצה פעם אחת, ומסתיימת בחצי שנייה.
+
+   הכלל הגורף של prefers-reduced-motion בסוף הקובץ מכבה את כל זה במכה
+   אחת, ואז הגרף פשוט מופיע. */
+.chart .rise {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: ch-rise var(--dur-slow) var(--ease) backwards;
+  animation-delay: var(--d, 0ms);
+}
+.chart .draw {
+  stroke-dasharray: var(--len, 2400);
+  animation: ch-draw 760ms var(--ease) backwards;
+  animation-delay: var(--d, 0ms);
+}
+.chart .pop {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: ch-pop 320ms var(--ease) backwards;
+  animation-delay: 620ms;
+}
+.chart .wash, .chart .fade {
+  animation: ch-fade var(--dur) var(--ease) backwards;
+  animation-delay: var(--d, 0ms);
+}
+.chart .fade { animation-delay: calc(var(--d, 0ms) + 240ms); }
+
+.heat-cell.wash {
+  animation: ch-cell var(--dur) var(--ease) backwards;
+  animation-delay: var(--d, 0ms);
+}
+/* הממשק מימין לשמאל, ולכן מילוי אופקי גדל מהקצה הימני. */
+.grow-x {
+  transform-origin: right center;
+  animation: ch-grow-x var(--dur-slow) var(--ease) backwards;
+  animation-delay: var(--d, 0ms);
+}
+/* הדיברגינג גדל משני צדי קו האפס, וכל צד לכיוונו. */
+.div-bar.pos { transform-origin: left center; }
+.div-bar.neg { transform-origin: right center; }
+
+@keyframes ch-rise { from { transform: scaleY(0); } }
+@keyframes ch-draw { from { stroke-dashoffset: var(--len, 2400); } }
+@keyframes ch-pop { from { transform: scale(0); opacity: 0; } }
+@keyframes ch-fade { from { opacity: 0; } }
+@keyframes ch-cell { from { opacity: 0; transform: scale(.82); } }
+@keyframes ch-grow-x { from { transform: scaleX(0); } }
