@@ -137,6 +137,10 @@
   --header-h: 60px;
 
   --font: "Heebo", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* הספרות הן הנושא של המסך הזה, ולכן הן מקבלות גופן משלהן: רוביק —
+     עגלגל, מודרני, וכתוב עבה יותר מגופן הטקסט. הוא משמש רק למספרים,
+     כך שהעברית נשארת בהיבו ולא משנה את אופייה. */
+  --font-num: "Rubik", "Heebo", system-ui, sans-serif;
   --ease: cubic-bezier(.32, .72, 0, 1);
 
   color-scheme: light;
@@ -2390,3 +2394,26 @@ kbd {
   .sec-seg { display: grid; grid-auto-flow: column; width: 100%; border-radius: var(--r); }
   .sec-seg button { border-radius: calc(var(--r) - 3px); }
 }
+
+/* ============================================================ גופן הספרות
+   כל מקום שמציג מספר עובר לרוביק: הצורות עגולות יותר, והמשקל שנבחר כאן
+   כבד בדרגה מגופן הטקסט, כדי שהמספר יוביל את המסך ולא ייבלע בו.
+   עברית וטקסט רגיל אינם נוגעים בזה. */
+.num, td.num, th.num, .tnum,
+.hero-value, .kpi-value, .stat-value,
+.report-lead-value, .report-table td.num, .report-table th.num,
+.report-table .up, .report-table .down,
+.delta, .list-value, .div-value, .year-pill-value, .nav-count, .chip-count,
+.rank, .mix-year, .heat-cell-label, .entry-was, .plan-fact b,
+.grid-table td.cell input, .month-grid .input {
+  font-family: var(--font-num);
+  font-feature-settings: "lnum" 1;
+}
+
+/* מספרי התצוגה — הגדולים, אלה שקוראים ראשונים — במשקל המלא של רוביק. */
+.hero-value, .report-lead-value { font-weight: 700; }
+.kpi-value, .stat-value, .div-value, .list-value, .year-pill-value { font-weight: 600; }
+.delta { font-weight: 600; }
+
+/* טקסט על הגרפים הוא מספרים ושנים כמעט תמיד, ולכן אותו גופן. */
+svg text { font-family: var(--font-num); }
