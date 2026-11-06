@@ -1,0 +1,38 @@
+# הבדיקות רצות על כל דחיפה ועל כל בקשת מיזוג.
+#
+# הקונטיינר של playwright מגיע עם הדפדפנים מותקנים, ולכן אין כאן שלב התקנת
+# דפדפן שעלול להישבר בשקט. גרסת הקונטיינר חייבת להתאים לגרסת playwright-core
+# שב-package.json — שתיהן מתעדכנות יחד.
+name: בדיקות
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: חבילת הבדיקות
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: התקנת תלויות
+        run: npm ci
+
+      - name: בדיקות
+        run: npm test
+        env:
+          # הקונטיינר מחזיק את הדפדפנים כאן; התשתית מאתרת אותם לפי הנתיב הזה
+          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+
+      - name: בדיקת הזרע מול דוחות ה-ERP
+        run: python3 tools/check_dataset.py

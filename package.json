@@ -1,0 +1,12 @@
+{
+  "name": "beny-salescrm",
+  "private": true,
+  "description": "BENY — ניהול מכירות. האפליקציה עצמה היא קבצים סטטיים בלבד ואין לה תלויות ריצה; מה שכאן משמש את הבדיקות בלבד.",
+  "scripts": {
+    "test": "node tests/run.js",
+    "serve": "node tests/serve.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.0"
+  }
+}

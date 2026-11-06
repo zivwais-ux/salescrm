@@ -26,18 +26,24 @@
   --accent-soft:   oklch(0.955 0.024 265);
   --accent-line:   oklch(0.878 0.055 265);
   --accent-text:   oklch(0.463 0.186 265);
+  /* הדיו שיושב *על* צבע המותג המלא. בלילה המותג מבהיר כדי להיראות על רקע
+     כהה, ואז לבן עליו יורד מתחת לסף — ולכן שם הדיו מתהפך לכהה. */
+  --on-accent:     #fff;
 
   --up:            oklch(0.545 0.126 163);
   --up-soft:       oklch(0.958 0.032 163);
   --up-line:       oklch(0.885 0.062 163);
+  --up-ink:        oklch(0.470 0.115 163);
 
   --down:          oklch(0.553 0.192 26);
   --down-soft:     oklch(0.960 0.026 26);
   --down-line:     oklch(0.888 0.055 26);
+  --down-ink:      oklch(0.505 0.192 26);
 
   --warn:          oklch(0.588 0.132 70);
   --warn-soft:     oklch(0.964 0.038 80);
   --warn-line:     oklch(0.891 0.077 80);
+  --warn-ink:      oklch(0.455 0.105 70);
 
   /* --- גריד הגרפים --- */
   --chart-grid:    oklch(0.922 0.006 265);
@@ -156,18 +162,22 @@
   --accent-soft:   #1a2540;
   --accent-line:   #2c3d62;
   --accent-text:   #a8c2fa;
+  --on-accent:     #0a1020;
 
   --up:            #2ec98f;
   --up-soft:       #10281f;
   --up-line:       #1b4435;
+  --up-ink:       #2ec98f;
 
   --down:          #f4756c;
   --down-soft:     #2c1512;
   --down-line:     #4d221d;
+  --down-ink:       #f4756c;
 
   --warn:          #e9ad4b;
   --warn-soft:     #2a1f0d;
   --warn-line:     #4a381a;
+  --warn-ink:       #e9ad4b;
 
   --chart-grid:    #242830;
   --chart-prior:   #414751;
@@ -405,7 +415,7 @@ svg { display: block; }
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   box-shadow: var(--shadow-sm);
 }
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
@@ -775,9 +785,9 @@ label.stacked textarea:focus {
   border: 1px solid var(--line);
   color: var(--text-2);
 }
-.badge.up { background: var(--up-soft); border-color: var(--up-line); color: var(--up); }
-.badge.down { background: var(--down-soft); border-color: var(--down-line); color: var(--down); }
-.badge.warn { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn); }
+.badge.up { background: var(--up-soft); border-color: var(--up-line); color: var(--up-ink); }
+.badge.down { background: var(--down-soft); border-color: var(--down-line); color: var(--down-ink); }
+.badge.warn { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn-ink); }
 .badge.accent { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-text); }
 
 .delta {
@@ -1199,7 +1209,7 @@ kbd {
 .bubble.you {
   align-self: flex-start;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   padding: 9px 13px;
   border-end-start-radius: var(--r-sm);
   max-width: 85%;
@@ -1755,7 +1765,7 @@ kbd {
   border: 0;
   border-radius: 99px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   box-shadow: var(--shadow-lg);
   cursor: pointer;
 }
