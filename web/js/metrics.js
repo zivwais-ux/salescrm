@@ -425,6 +425,115 @@ window.Metrics = (function () {
     })).sort((a, b) => b.y - a.y || b.a - a.a);
   }
 
+  /* ======================================================= הבסיס של הלקוח
+     סף אחיד לכל התיק הוא כלי בוטה. "ירד 35% ומעלה" מסמן לקוח שתמיד נע בקפיצות
+     של 60% ומפספס לקוח יציב שירד 30% — וזו בדיוק החריגה שכדאי להרים אליה טלפון.
+     נמדד על הנתונים עצמם: מתוך 42 הלקוחות שהכלל האחיד מסמן, 13 כבר חוו ירידה
+     כזו או גדולה ממנה בעבר, ושלושה לקוחות שחורגים מהדפוס שלהם אינם מסומנים.
+
+     לכן כל לקוח נמדד מול ההיסטוריה של עצמו, והתוצאה תמיד מגיעה עם הסבר. */
+
+  const MIN_BASE = 5000;   // מתחת לזה הלקוח מזדמן, וכל אחוז אצלו הוא רעש
+
+  function median(list) {
+    if (!list.length) return 0;
+    const sorted = list.slice().sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+
+  function spread(list, mid) {
+    if (list.length < 2) return 0;
+    return Math.sqrt(sum(list.map((v) => (v - mid) ** 2)) / list.length);
+  }
+
+  /** הסכום של לקוח בשנה, עד חודש נתון. */
+  function customerUpto(no, year, lastMonth) {
+    return sum(Store.sales()
+      .filter((s) => s.c === no && s.y === year && s.m <= lastMonth)
+      .map((s) => s.a));
+  }
+
+  /**
+   * איך הלקוח הזה נוהג להשתנות משנה לשנה, ומה המשמעות של השינוי הנוכחי.
+   *
+   * ההשוואה תמיד על אותו חלון חודשים בשתי השנים, אחרת ההפרש הוא תאריכי.
+   */
+  function baseline(no, { year, cmpMonths } = {}) {
+    const years = Store.years();
+    const upto = cmpMonths || Store.closedMonth(year || years[years.length - 1]);
+    const target = year || years[years.length - 1];
+
+    // שיעורי השינוי ההיסטוריים של הלקוח, שנה מול קודמתה
+    const history = [];
+    years.forEach((y) => {
+      if (y >= target || !years.includes(y - 1)) return;
+      const base = customerUpto(no, y - 1, upto);
+      if (base < MIN_BASE) return;
+      history.push(((customerUpto(no, y, upto) - base) / base) * 100);
+    });
+
+    const now = customerUpto(no, target, upto);
+    const base = customerUpto(no, target - 1, upto);
+    const changePct = base >= MIN_BASE ? ((now - base) / base) * 100 : null;
+
+    const mid = median(history);
+    const sd = spread(history, mid);
+    const worst = history.length ? Math.min(...history) : null;
+
+    let verdict = "steady";
+    let why = "";
+    if (changePct === null) {
+      verdict = "unknown";
+      why = "אין מספיק היסטוריה כדי להשוות אותו לעצמו";
+    } else if (history.length < 2) {
+      verdict = changePct <= -35 ? "watch" : "steady";
+      why = `${Fmt.percent(changePct, 0)} מול אשתקד · אין מספיק שנים כדי לדעת מה רגיל אצלו`;
+    } else if (changePct <= -10 && sd > 0 && changePct < mid - 2 * sd) {
+      // חורג מהדפוס שלו עצמו — גם אם לא חצה שום סף אחיד
+      verdict = "anomaly";
+      why = `${Fmt.percent(changePct, 0)} — והוא רגיל ל-${Fmt.percent(mid, 0)} ±${
+        Math.round(sd)}`;
+    } else if (changePct <= -35 && worst !== null && worst <= changePct + 10) {
+      // ירד הרבה, אבל ירידה כזו כבר קרתה לו — זו התנודתיות שלו
+      verdict = "volatile";
+      why = `${Fmt.percent(changePct, 0)} — אבל כבר ירד ${Fmt.percent(worst, 0)} בעבר, ` +
+        "זו התנודתיות שלו";
+    } else if (changePct <= -35) {
+      verdict = "anomaly";
+      why = `${Fmt.percent(changePct, 0)} — הירידה החדה ביותר שלו עד היום`;
+    } else if (changePct <= -10) {
+      verdict = "watch";
+      why = `${Fmt.percent(changePct, 0)} מול אשתקד`;
+    } else {
+      why = `${Fmt.percent(changePct, 0)} מול אשתקד · בטווח הרגיל שלו`;
+    }
+
+    return { no, changePct, history, normal: mid, spread: sd, worst, verdict, why,
+             months: upto };
+  }
+
+  /**
+   * הטווח הרגיל של הלקוח בחודש מסוים, מתוך אותו חודש בשנים הקודמות.
+   *
+   * זה מה שמאפשר לומר "נובמבר: 32 אלף, והטווח הרגיל שלו 70–95" במקום להשוות
+   * לחודש שעבר — שאצל לקוח עונתי אינו אומר דבר.
+   */
+  function monthBand(no, month, { year } = {}) {
+    const years = Store.years();
+    const target = year || years[years.length - 1];
+    const past = years.filter((y) => y < target).map((y) => sum(Store.sales()
+      .filter((s) => s.c === no && s.y === y && s.m === month).map((s) => s.a)));
+    if (past.length < 2) return null;
+    const mid = median(past);
+    const sd = spread(past, mid);
+    return { month, median: mid, low: Math.max(0, mid - sd), high: mid + sd,
+             years: past.length,
+             actual: sum(Store.sales()
+               .filter((s) => s.c === no && s.y === target && s.m === month)
+               .map((s) => s.a)) };
+  }
+
   /** פירוט חודשי של לקוח בודד לאורך כל השנים. */
   function customerHistory(no) {
     const years = Store.years();
@@ -437,6 +546,7 @@ window.Metrics = (function () {
   }
 
   return { rows, byCustomer, monthly, overview, customerHistory, agentSplit,
+           baseline, monthBand,
            yearly, rolling12, seasonality, agentYears, trajectory, yearPaths, foreign,
            partialMonth,
            catalog, change, sum };

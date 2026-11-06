@@ -496,37 +496,113 @@ window.App = (function () {
         ? `<div class="notice">${UI.icon("users", 16)}<div>${related.join("<br>")}</div></div>`
         : "";
 
+    /* הבריף: מה שצריך לדעת לפני שמרימים טלפון ללקוח הזה, בעמוד אחד.
+       הפסיקה בראש אינה קישוט — היא עונה על "למה אני מסתכל עליו עכשיו". */
+    const base = Metrics.baseline(no, { year: ctx.year, cmpMonths: view.cmpMonths });
+    const ranked = view.customers.filter((c) => !c.isBucket && c.ytd > 0);
+    const rank = ranked.findIndex((c) => c.no === no) + 1;
+    const share = view.totalYtd ? (row.ytd / view.totalYtd) * 100 : 0;
+    const band = row.isBucket ? null : Metrics.monthBand(no, view.cmpMonths, { year: ctx.year });
+
+    const TONE = { anomaly: "down", volatile: "warn", watch: "warn",
+                   steady: "up", unknown: "" };
+    const HEAD = { anomaly: "חורג מהדפוס שלו", volatile: "תנודתי כרגיל",
+                   watch: "במעקב", steady: "יציב", unknown: "אין מספיק היסטוריה" };
+
+    const verdict = row.isBucket ? "" : `
+      <div class="verdict ${TONE[base.verdict]}">
+        <span class="verdict-mark"></span>
+        <div class="grow">
+          <div class="verdict-head">${HEAD[base.verdict]}</div>
+          <div class="verdict-why">${Fmt.escape(base.why)}</div>
+        </div>
+      </div>`;
+
+    // הטווח הרגיל של הלקוח בחודש האחרון שנסגר — ההשוואה היחידה שמחזיקה
+    // גם אצל לקוח עונתי, שאצלו "מול החודש שעבר" אינו אומר דבר.
+    const bandRow = band && band.years >= 2 ? `
+      <div class="band-row">
+        <div>
+          <div class="band-label">${Fmt.month(view.cmpMonths)} ${ctx.year}</div>
+          <div class="band-value">${Fmt.money(band.actual)}</div>
+        </div>
+        <div class="band-scale" title="הטווח הרגיל שלו על פי ${band.years} שנים">
+          <span class="band-normal" style="right:${
+            Math.max(0, Math.min(100, (band.low / Math.max(band.high, band.actual, 1)) * 100))
+          }%;width:${
+            Math.max(4, Math.min(100, ((band.high - band.low)
+              / Math.max(band.high, band.actual, 1)) * 100))}%"></span>
+          <span class="band-dot" style="right:${
+            Math.max(0, Math.min(99, (band.actual
+              / Math.max(band.high, band.actual, 1)) * 100))}%"></span>
+        </div>
+        <div class="band-note">הטווח הרגיל שלו · ${Fmt.short(band.low)}–${
+          Fmt.short(band.high)} ₪</div>
+      </div>` : "";
+
+    const open = activities.filter((a) => !a.done);
+
     const panes = {
       overview: `
         ${notice}
-        <div class="grid cols-4">
-          <section class="card kpi">
-            <div class="kpi-label">${ctx.year} · ${view.cmpLabel}</div>
-            <div class="kpi-value">${Fmt.money(row.ytd)}</div>
-            <div class="kpi-foot">${view.hasPrior
-              ? `${UI.delta(row.changePct)}
-                 <span>מול ${Fmt.money(row.priorYtd)} ב-${view.priorYear}</span>`
-              : `<span>אין ${view.priorYear} במאגר להשוואה</span>`}</div>
-          </section>
-          <section class="card kpi">
-            <div class="kpi-label">חודשים פעילים</div>
-            <div class="kpi-value">${row.activeMonths}<span
-              style="font-size:14px;color:var(--muted)"> / ${view.lastMonth}</span></div>
-            <div class="kpi-foot">מכירה אחרונה ${
+        ${verdict}
+
+        <div class="stat-rail">
+          <div class="stat">
+            <div class="stat-label"><span>${ctx.year} · ${view.cmpLabel}</span></div>
+            <div class="stat-value">${Fmt.money(row.ytd)}</div>
+            <div class="stat-foot">${view.hasPrior
+              ? `${UI.delta(row.changePct)} מול ${Fmt.money(row.priorYtd)} ב-${view.priorYear}`
+              : `אין ${view.priorYear} במאגר להשוואה`}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label"><span>מקומו בתיק</span></div>
+            <div class="stat-value">${rank ? `#${rank}` : "—"}</div>
+            <div class="stat-foot">${share.toFixed(1)}% מהמחזור</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label"><span>חודשים פעילים</span></div>
+            <div class="stat-value">${row.activeMonths}<span class="stat-of"> / ${
+              view.lastMonth}</span></div>
+            <div class="stat-foot">מכירה אחרונה ${
               row.lastActive ? Fmt.month(row.lastActive) : "—"}</div>
-          </section>
-          <section class="card kpi">
-            <div class="kpi-label">יעד ${ctx.year}</div>
-            <div class="kpi-value">${row.target ? Fmt.money(row.target) : "—"}</div>
-            <div class="kpi-foot">${row.target
+          </div>
+          <div class="stat">
+            <div class="stat-label"><span>יעד ${ctx.year}</span></div>
+            <div class="stat-value">${row.target ? Fmt.money(row.target) : "—"}</div>
+            <div class="stat-foot">${row.target
               ? `${((row.ytd / row.target) * 100).toFixed(0)}% עמידה`
               : "לא הוגדר יעד"}</div>
-          </section>
+          </div>
         </div>
+
+        ${bandRow}
 
         ${UI.card("מכירות לפי חודש", {
           sub: `${ctx.year} מול ${view.priorYear}`,
           body: '<div id="card-chart"></div>',
+        })}
+
+        ${UI.card("מה פתוח", {
+          sub: open.length ? "מעקב שעדיין לא נסגר" : "",
+          actions: `<button class="btn btn-sm btn-primary" id="card-log">${
+            UI.icon("note", 14)} רישום שיחה</button>`,
+          flush: !!open.length,
+          body: open.length
+            ? `<div class="list">${open.map((a) => `
+                <div class="list-row">
+                  <span class="dot" style="background:var(--${
+                    a.follow_up_on && a.follow_up_on < new Date().toISOString().slice(0, 10)
+                      ? "down" : "accent"})"></span>
+                  <div class="grow">
+                    <div class="list-title ellipsis">${Fmt.escape(a.title)}</div>
+                    <div class="list-sub">${a.follow_up_on
+                      ? `מעקב ${Fmt.date(a.follow_up_on)}` : ViewActivity.KINDS[a.kind]}</div>
+                  </div>
+                  <button class="btn btn-sm" data-card-done="${a.id}">${
+                    UI.icon("check", 14)}</button>
+                </div>`).join("")}</div>`
+            : UI.empty("אין מעקב פתוח", "רישום שיחה נשמר כאן ועל לוח הבקרה.", "check"),
         })}
 
         ${row.payers.length > 1 ? UI.card("לקוחות משלמים", {
@@ -650,6 +726,12 @@ window.App = (function () {
         });
         UI.on(node, "[data-customer]", "click", (e) => openCustomer(e.currentTarget.dataset.customer));
         UI.on(node, "[data-toggle]", "click", (e) => Store.toggleActivity(e.currentTarget.dataset.toggle));
+        UI.on(node, "[data-card-done]", "click", (e) => {
+          Store.toggleActivity(e.currentTarget.dataset.cardDone);
+          toast("סומן כבוצע", "up", { undo: true });
+        });
+        const log = node.querySelector("#card-log");
+        if (log) log.addEventListener("click", () => ViewActivity.openComposer({ party: no }));
 
         const yearsChart = node.querySelector("#card-years");
         if (yearsChart) {

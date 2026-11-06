@@ -629,6 +629,63 @@ label.stacked textarea:focus {
              margin-top: var(--sp-2); }
 .hero-chart { padding: var(--sp-4) var(--sp-4) var(--sp-3); min-width: 0; }
 
+/* ------------------------------------------------------ פסיקת הלקוח --
+   השורה שעונה על "למה אני מסתכל עליו". צבע הקצה נושא את התשובה, והמשפט
+   שלידה אומר אותה במילים — אף אחד מהשניים לבדו אינו מספיק. */
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border-radius: var(--r);
+}
+.verdict > .grow { flex: 1; min-width: 0; }
+.verdict-mark { width: 3px; align-self: stretch; min-height: 30px;
+                border-radius: 99px; background: var(--line-strong); flex: none; }
+.verdict-head { font-size: var(--fs-sm); font-weight: var(--fw-semi); }
+.verdict-why { font-size: var(--fs-label); color: var(--text-2);
+               line-height: var(--lh-snug); }
+.verdict.down .verdict-mark { background: var(--down); }
+.verdict.down .verdict-head { color: var(--down); }
+.verdict.warn .verdict-mark { background: var(--warn); }
+.verdict.warn .verdict-head { color: var(--warn-ink); }
+.verdict.up .verdict-mark { background: var(--up); }
+.verdict.up .verdict-head { color: var(--up-ink); }
+
+/* הטווח הרגיל של הלקוח בחודש: נקודה על פס, לא עוד מספר להשוות אליו בראש */
+.band-row {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--card-ring), var(--card-el);
+}
+.band-label { font-size: var(--fs-label); color: var(--muted); }
+.band-value { font-size: var(--fs-h2); font-weight: var(--fw-semi);
+              letter-spacing: var(--track-tight); }
+.band-scale { position: relative; height: 8px; border-radius: 99px;
+              background: var(--surface-3); }
+.band-normal { position: absolute; top: 0; bottom: 0; border-radius: 99px;
+               background: var(--accent-line); }
+.band-dot { position: absolute; top: 50%; translate: 50% -50%; width: 11px; height: 11px;
+            border-radius: 99px; background: var(--accent);
+            box-shadow: 0 0 0 2px var(--surface); }
+.band-note { font-size: var(--fs-micro); color: var(--muted); text-align: start; }
+.stat-of { font-size: var(--fs-body); color: var(--muted); font-weight: var(--fw-regular); }
+
+/* במגירה הצרה יותר, ארבעה מדדים ב-auto-fit משאירים את הרביעי לבד בשורה. */
+.drawer .stat-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.drawer .stat:nth-child(odd) { border-inline-start: 0; }
+.drawer .stat:nth-child(n+3) { border-top: 1px solid var(--line); }
+
+@media (max-width: 1000px) {
+  .band-row { grid-template-columns: 1fr; gap: var(--sp-2); }
+}
+
 /* ---------------------------------------------------- תזכורת העדכון --
    רצועה בגוון המותג מעל כל השאר: היא אינה אזהרה אלא הזמנה לפעולה, ולכן
    היא לובשת את צבע הפעולה ולא את צבע הסכנה. */

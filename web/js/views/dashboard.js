@@ -173,20 +173,25 @@ window.ViewDashboard = (function () {
       });
     });
 
-    view.atRisk.forEach((c) => {
+    /* כל לקוח נמדד מול ההיסטוריה של עצמו ולא מול סף אחיד, והשורה אומרת למה
+       היא כאן. לקוח שהירידה אצלו היא התנודתיות הרגילה שלו יורד לתחתית התור
+       במקום להיעלם: הוא עדיין שווה מבט, אבל לא לפני מי שבאמת חרג. */
+    view.customers.filter((c) => !c.isBucket).forEach((c) => {
+      const base = Metrics.baseline(c.no, { year: view.year, cmpMonths: view.cmpMonths });
+      if (base.verdict !== "anomaly" && base.verdict !== "volatile") return;
+      const gone = c.ytd === 0;
       items.push({
-        kind: "risk",
+        kind: base.verdict === "volatile" ? "volatile" : "risk",
         no: c.no,
-        rank: 1,
+        rank: base.verdict === "volatile" ? 5 : 1,
         weight: Math.abs(c.delta),
         name: c.name,
         title: c.name,
-        note: c.ytd === 0
+        note: gone
           ? `לא קנה השנה · ${Fmt.money(c.priorYtd)} ב-${view.priorYear}`
-          : `${Fmt.money(c.ytd)} מול ${Fmt.money(c.priorYtd)} · ${
-              Fmt.percent(c.changePct, 0)}`,
+          : `${Fmt.money(c.ytd)} מול ${Fmt.money(c.priorYtd)} · ${base.why}`,
         value: `<span class="delta down">${Fmt.signed(c.delta)}</span>`,
-        tone: "down",
+        tone: base.verdict === "volatile" ? "" : "down",
       });
     });
 
@@ -211,8 +216,9 @@ window.ViewDashboard = (function () {
   const FILTERS = [
     ["all", "הכול"],
     ["task", "מעקב"],
-    ["risk", "בירידה"],
+    ["risk", "חריגים"],
     ["quiet", "שקטים"],
+    ["volatile", "תנודתיים"],
   ];
 
   function actionRow(item) {
