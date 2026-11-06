@@ -9,7 +9,17 @@ window.ViewSettings = (function () {
    * משווה את מה שהמערכת מחזיקה עכשיו מול אותה שורה — כך שאחרי עריכה ידנית
    * רואים בדיוק במה המערכת כבר שונה מהדוח, במקום להניח שהיא זהה לו.
    */
-  const ui = { year: null };
+  const ui = { year: null, section: "files" };
+
+  /* המסך הזה החזיק שבעה כרטיסים זה מתחת לזה, וכולם גלויים תמיד — גם אלה
+     שנוגעים בהם פעם בשנה. הם מחולקים עכשיו לשלושה חלקים, ורק אחד פתוח
+     בכל רגע; שורת המצב למעלה נשארת תמיד, כי היא התשובה לשאלה הנפוצה
+     ביותר כאן — מה בעצם יש במערכת. */
+  const SECTIONS = [
+    ["files", "קבצים וגיבוי"],
+    ["check", "בדיקת הנתונים"],
+    ["edit", "הגדרות ועריכה"],
+  ];
 
   function reconciliation(ctx) {
     const years = Store.years().slice().reverse();
@@ -296,91 +306,8 @@ window.ViewSettings = (function () {
     });
   }
 
-  function render(root, ctx) {
-    const years = Store.years();
-    const saved = Store.state.savedAt;
-    const manual = Store.sales().filter((s) => s.source === "manual").length;
-    const book = Metrics.catalog();
-
-    root.innerHTML = `
-      <div class="grid cols-2" style="align-items:start">
-        ${UI.card("קובץ האקסל", {
-          sub: "הקובץ נשאר המסמך הרשמי — המערכת מחזיקה אותו מעודכן",
-          body: `
-            <div class="row-actions">
-              <button class="btn btn-primary" id="xl-export">
-                ${UI.icon("download", 15)} הורדת קובץ מעודכן</button>
-              <label class="btn" style="cursor:pointer">
-                ${UI.icon("upload", 15)} ייבוא מקובץ
-                <input type="file" id="xl-import" accept=".xlsx,.xls,.csv" hidden>
-              </label>
-            </div>
-            <p class="hint" style="margin-top:12px">
-              הקובץ נבנה לפי מבנה הדוח: גיליון ניתוח מכירות לכל שנה, נתוני גלם,
-              סיכום חודשי, ויעדים ומעקב. הייבוא קורא את גיליון "נתוני גלם"
-              (מס׳ לקוח, מס׳ משלם, שנה, חודש וסכום); שורה עם סכום 0 מוחקת את
-              התנועה המתאימה.
-            </p>`,
-        })}
-
-        ${UI.card("גיבוי המערכת", {
-          sub: "כולל יעדים, פעילות ופרטי לקוחות — לא רק סכומים",
-          body: `
-            <div class="row-actions">
-              <button class="btn" id="bk-export">${UI.icon("download", 15)} שמירת גיבוי</button>
-              <label class="btn" style="cursor:pointer">
-                ${UI.icon("upload", 15)} טעינת גיבוי
-                <input type="file" id="bk-import" accept=".json" hidden>
-              </label>
-            </div>
-            <p class="hint" style="margin-top:12px">
-              הנתונים נשמרים בדפדפן הזה בלבד. גיבוי הוא הדרך להעביר אותם
-              למחשב אחר, או לחזור אחורה אחרי שינוי גדול.
-            </p>`,
-        })}
-      </div>
-
-      ${UI.card("מצב הנתונים", {
-        flush: true,
-        body: `
-          <div class="grid cols-4" style="gap:0">
-            ${[
-              ["לקוחות (יעד משלוח)", Fmt.number(book.shipTo.size)],
-              ["משלמים בלבד", Fmt.number(book.payerOnly.size)],
-              ["תנועות מכירה", Fmt.number(Store.sales().length)],
-              ["מתוכן נרשמו ידנית", Fmt.number(manual)],
-            ].map(([label, value], i) => `
-              <div class="kpi" style="${i ? "border-inline-start:1px solid var(--line)" : ""}">
-                <div class="kpi-label">${label}</div>
-                <div class="kpi-value" style="font-size:20px">${value}</div>
-              </div>`).join("")}
-          </div>
-          <div class="toolbar" style="border-bottom:0;border-top:1px solid var(--line)">
-            <span class="hint">שנים ${years.join(" · ")}${
-              saved ? ` · נשמר לאחרונה ${new Date(saved).toLocaleString("he-IL")}` : ""}</span>
-            <div class="spacer">
-              <button class="btn btn-danger" id="reset">
-                ${UI.icon("undo", 15)} איפוס לנתוני הדוחות המקוריים</button>
-            </div>
-          </div>`,
-      })}
-
-      ${editors(ctx)}
-
-      ${foreignCard()}
-
-      ${reconciliation(ctx)}`;
-
-    wireEditors(root, ctx);
-
-    UI.on(root, "[data-customer]", "click",
-      (e) => App.openCustomer(e.currentTarget.dataset.customer));
-
-    UI.on(root, "[data-year-check]", "click", (e) => {
-      ui.year = Number(e.currentTarget.dataset.yearCheck);
-      render(root, ctx);
-    });
-
+  /** הכפתורים של חלק הקבצים: ייצוא וייבוא אקסל, ושמירת גיבוי וטעינתו. */
+  function wireFiles(root) {
     root.querySelector("#xl-export").addEventListener("click", () => App.exportExcel());
 
     root.querySelector("#xl-import").addEventListener("change", async (e) => {
@@ -417,6 +344,107 @@ window.ViewSettings = (function () {
         e.target.value = "";
       }
     });
+  }
+
+  function render(root, ctx) {
+    const years = Store.years();
+    const saved = Store.state.savedAt;
+    const manual = Store.sales().filter((s) => s.source === "manual").length;
+    const book = Metrics.catalog();
+
+    const files = `
+      <div class="grid cols-2" style="align-items:start">
+        ${UI.card("קובץ האקסל", {
+          sub: "הקובץ נשאר המסמך הרשמי — המערכת מחזיקה אותו מעודכן",
+          body: `
+            <div class="row-actions">
+              <button class="btn btn-primary" id="xl-export">
+                ${UI.icon("download", 15)} הורדת קובץ מעודכן</button>
+              <label class="btn" style="cursor:pointer">
+                ${UI.icon("upload", 15)} ייבוא מקובץ
+                <input type="file" id="xl-import" accept=".xlsx,.xls,.csv" hidden>
+              </label>
+            </div>
+            <p class="hint" style="margin-top:12px">
+              הקובץ נבנה לפי מבנה הדוח: גיליון ניתוח מכירות לכל שנה, נתוני גלם,
+              סיכום חודשי, ויעדים ומעקב. הייבוא קורא את גיליון "נתוני גלם"
+              (מס׳ לקוח, מס׳ משלם, שנה, חודש וסכום); שורה עם סכום 0 מוחקת את
+              התנועה המתאימה.
+            </p>`,
+        })}
+
+        ${UI.card("גיבוי המערכת", {
+          sub: "כולל יעדים, פעילות ופרטי לקוחות — לא רק סכומים",
+          body: `
+            <div class="row-actions">
+              <button class="btn" id="bk-export">${UI.icon("download", 15)} שמירת גיבוי</button>
+              <label class="btn" style="cursor:pointer">
+                ${UI.icon("upload", 15)} טעינת גיבוי
+                <input type="file" id="bk-import" accept=".json" hidden>
+              </label>
+            </div>
+            <p class="hint" style="margin-top:12px">
+              הנתונים נשמרים בדפדפן הזה בלבד. גיבוי הוא הדרך להעביר אותם
+              למחשב אחר, או לחזור אחורה אחרי שינוי גדול.
+            </p>`,
+        })}
+      </div>`;
+
+    const state = `
+      ${UI.card("מצב הנתונים", {
+        flush: true,
+        body: `
+          <div class="grid cols-4" style="gap:0">
+            ${[
+              ["לקוחות (יעד משלוח)", Fmt.number(book.shipTo.size)],
+              ["משלמים בלבד", Fmt.number(book.payerOnly.size)],
+              ["תנועות מכירה", Fmt.number(Store.sales().length)],
+              ["מתוכן נרשמו ידנית", Fmt.number(manual)],
+            ].map(([label, value], i) => `
+              <div class="kpi" style="${i ? "border-inline-start:1px solid var(--line)" : ""}">
+                <div class="kpi-label">${label}</div>
+                <div class="kpi-value" style="font-size:20px">${value}</div>
+              </div>`).join("")}
+          </div>
+          <div class="toolbar" style="border-bottom:0;border-top:1px solid var(--line)">
+            <span class="hint">שנים ${years.join(" · ")}${
+              saved ? ` · נשמר לאחרונה ${new Date(saved).toLocaleString("he-IL")}` : ""}</span>
+            <div class="spacer">
+              <button class="btn btn-danger" id="reset">
+                ${UI.icon("undo", 15)} איפוס לנתוני הדוחות המקוריים</button>
+            </div>
+          </div>`,
+      })}`;
+
+    const body = ui.section === "check" ? `${reconciliation(ctx)}${foreignCard()}`
+      : ui.section === "edit" ? editors(ctx)
+      : files;
+
+    root.innerHTML = `
+      ${state}
+      <div class="seg sec-seg" role="tablist">
+        ${SECTIONS.map(([id, label]) => `<button role="tab" data-section="${id}"
+          aria-selected="${id === ui.section}"
+          class="${id === ui.section ? "is-active" : ""}">${label}</button>`).join("")}
+      </div>
+      ${body}`;
+
+    UI.on(root, "[data-section]", "click", (e) => {
+      ui.section = e.currentTarget.dataset.section;
+      render(root, ctx);
+    });
+
+    if (ui.section === "edit") wireEditors(root, ctx);
+
+    UI.on(root, "[data-customer]", "click",
+      (e) => App.openCustomer(e.currentTarget.dataset.customer));
+
+    UI.on(root, "[data-year-check]", "click", (e) => {
+      ui.year = Number(e.currentTarget.dataset.yearCheck);
+      render(root, ctx);
+    });
+
+    if (ui.section === "files") wireFiles(root);
 
     root.querySelector("#reset").addEventListener("click", () => {
       App.confirm({

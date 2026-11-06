@@ -2383,3 +2383,10 @@ kbd {
   .up { color: #0a6b3d; }
   .down { color: #9b1c1c; }
 }
+
+/* חלקי מסך בתוך עמוד (נתונים וקבצים): הבורר יושב בין שורת המצב לתוכן. */
+.sec-seg { margin: var(--sp-5) 0 var(--sp-4); }
+@media (max-width: 560px) {
+  .sec-seg { display: grid; grid-auto-flow: column; width: 100%; border-radius: var(--r); }
+  .sec-seg button { border-radius: calc(var(--r) - 3px); }
+}
