@@ -1532,6 +1532,11 @@ kbd {
 }
 .ctxbar[hidden] { display: none; }
 
+/* כל רכיב שקיבל display משלו ניצח את [hidden] של הדפדפן, ולכן כפתור
+   "ביטול" נשאר גלוי גם כשאין מה לבטל. ההצהרה הזו מחזירה ל-hidden את
+   משמעותו בכל המערכת. */
+[hidden] { display: none !important; }
+
 .year-seg { overflow-x: auto; scrollbar-width: none; max-width: 100%; }
 .year-seg::-webkit-scrollbar { display: none; }
 .year-seg button {
@@ -2470,3 +2475,10 @@ svg text { font-family: var(--font-num); }
 @keyframes ch-fade { from { opacity: 0; } }
 @keyframes ch-cell { from { opacity: 0; transform: scale(.82); } }
 @keyframes ch-grow-x { from { transform: scaleX(0); } }
+
+/* ---------------------------------------------------------- סנכרון --
+   הסימון בכותרת מופיע רק כשיש מה לומר, ולכן הוא נושא צבע: אדום כשאין
+   קשר, כתום כשצריך להכריע, ונייטרלי כששינוי ממתין לעלות. */
+.sync-chip.down { color: var(--down); border-color: var(--down-line); }
+.sync-chip.warn { color: var(--warn-ink); border-color: var(--warn-line); }
+.sync-chip:not(.down):not(.warn) { color: var(--muted); }

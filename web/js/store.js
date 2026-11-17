@@ -681,6 +681,29 @@ window.Store = (function () {
     /** ייצוא מלא של מצב המערכת — גיבוי שאפשר לטעון בחזרה. */
     exportState: () => JSON.stringify(serialize(), null, 1),
 
+    /**
+     * האם המכשיר הזה מחזיק רק את מה שהאתר הגיע איתו.
+     *
+     * זה מה שמבדיל "טלפון שעוד לא נגעו בו" ממכשיר שיש בו עבודה. בלי
+     * ההבחנה הזו, חיבור ראשון לסנכרון היה עלול לדרוס חודש שהוזן במחשב
+     * רק משום שהטלפון הספיק להתחבר לפניו.
+     */
+    isPristine() {
+      if (state.activities.length || state.targets.size) return false;
+      if (Object.keys(state.settings).length) return false;
+      return ![...state.sales.values()].some((sale) => sale.source !== "erp");
+    },
+
+    /* שתי הדלתות של הסנכרון. הן עובדות על אותו מסמך שהגיבוי עובד עליו,
+       ולכן אין כאן פורמט שני שצריך לתחזק. */
+    snapshotState: () => serialize(),
+
+    /** אימוץ מצב שהגיע ממכשיר אחר. נכנס להיסטוריית הביטול ככל שינוי. */
+    adoptState(raw, label) {
+      if (!raw || !raw.parties || !raw.sales) throw new Error("מצב לא תקין");
+      commit(label || "סנכרון", () => hydrate(raw));
+    },
+
     importState(json) {
       const raw = JSON.parse(json);
       if (!raw.parties || !raw.sales) throw new Error("הקובץ אינו גיבוי של המערכת");
