@@ -17,159 +17,9 @@ window.ViewSettings = (function () {
      ביותר כאן — מה בעצם יש במערכת. */
   const SECTIONS = [
     ["files", "קבצים וגיבוי"],
-    ["sync", "סנכרון מכשירים"],
     ["check", "בדיקת הנתונים"],
     ["edit", "הגדרות ועריכה"],
   ];
-
-  const when = (iso) => {
-    if (!iso) return "עדיין לא";
-    const minutes = Math.round((Date.now() - new Date(iso)) / 60000);
-    if (minutes < 1) return "הרגע";
-    if (minutes < 60) return `לפני ${minutes} דקות`;
-    if (minutes < 60 * 24) return `לפני ${Math.round(minutes / 60)} שעות`;
-    return new Date(iso).toLocaleString("he-IL");
-  };
-
-  /**
-   * סנכרון בין המכשירים.
-   *
-   * המסך הזה אומר שלושה דברים ולא יותר: האם המכשיר מחובר, מתי הנתונים
-   * עלו או ירדו לאחרונה ומאיזה מכשיר, ומה לעשות כשמשהו לא בסדר. הקוד
-   * עצמו הוא הסיסמה, ולכן הוא מוצג כשדה סיסמה עם אפשרות לחשוף.
-   */
-  function syncSection() {
-    if (!Sync.configured()) {
-      return UI.card("סנכרון מכשירים", {
-        sub: "אינו מוגדר באתר הזה",
-        body: `<p class="hint">הנתונים נשמרים בדפדפן הזה בלבד, ולכן מה שמוזן
-          במחשב אינו מופיע בטלפון. להפעלת סנכרון יש להגדיר את כתובת השרת
-          והמפתח הציבורי בקובץ <code>js/config.js</code>.</p>`,
-      });
-    }
-
-    const s = Sync.state();
-    const tone = s.status === "error" ? "down"
-      : s.status === "conflict" ? "warn"
-      : s.on ? "up" : "";
-    const headline = !s.on ? "המכשיר הזה אינו מחובר"
-      : s.status === "conflict" ? "שני מכשירים שמרו — צריך להכריע"
-      : s.status === "error" ? "הסנכרון לא עבר"
-      : s.pending ? "יש שינוי שעוד לא עלה"
-      : "מסונכרן";
-
-    const body = !s.on ? `
-      <p class="report-note">מזינים את אותו קוד בכל מכשיר, והנתונים זורמים
-        בין שניהם. הקוד הוא הסיסמה — מי שמחזיק בו רואה את הנתונים.</p>
-      <div class="form-grid" style="margin-top:12px">
-        <label class="stacked"><span>קוד הסנכרון</span>
-          <input class="input" id="sync-code" type="password" autocomplete="off"
-                 spellcheck="false" placeholder="הקוד שקיבלתם"></label>
-        <label class="stacked"><span>שם המכשיר הזה</span>
-          <input class="input" id="sync-device" value="${
-            Fmt.escape(Sync.deviceName())}" placeholder="מחשב / טלפון"></label>
-      </div>
-      <div class="row-actions" style="margin-top:13px">
-        <button class="btn btn-primary" id="sync-connect">${
-          UI.icon("cloud", 15)} חיבור המכשיר</button>
-        <button class="btn" id="sync-make">${UI.icon("spark", 15)} הגרלת קוד חדש</button>
-        <label class="hint"><input type="checkbox" id="sync-show"> הצגת הקוד</label>
-      </div>
-      <p class="hint" style="margin-top:10px">במכשיר הראשון מגרילים קוד ומחברים;
-        בשני מקלידים את אותו קוד. מרגע זה כל עדכון באחד מופיע בשני.</p>` : `
-      <div class="band-row">
-        <div><div class="list-sub">ירד או עלה לאחרונה</div>
-          <b>${when(s.at)}</b></div>
-        <div><div class="list-sub">מהמכשיר</div>
-          <b>${Fmt.escape(s.by || "—")}</b></div>
-        <div><div class="list-sub">גרסה בענן</div>
-          <b>${Fmt.number(s.version)}</b></div>
-      </div>
-      ${s.status === "conflict" ? `
-        <div class="notice warn" style="margin-top:12px">
-          ${UI.icon("alert", 15)} מכשיר אחר שמר אחרי העדכון האחרון שהמכשיר הזה
-          ראה. אפשר לקחת את מה שבענן, או להעלות את מה שיש כאן ולדרוס אותו.
-        </div>
-        <div class="row-actions" style="margin-top:12px">
-          <button class="btn btn-primary" id="sync-take">${
-            UI.icon("download", 15)} לקחת את מה שבענן</button>
-          <button class="btn btn-danger" id="sync-keep">${
-            UI.icon("upload", 15)} להעלות את המכשיר הזה</button>
-        </div>` : ""}
-      ${s.status === "error" ? `<div class="notice down" style="margin-top:12px">
-        ${UI.icon("alert", 15)} ${Fmt.escape(s.error)} — הנתונים שמורים במכשיר
-        ולא אבד דבר. אפשר לנסות שוב.</div>` : ""}
-      <div class="row-actions" style="margin-top:13px">
-        <button class="btn" id="sync-pull">${UI.icon("download", 15)} משיכה עכשיו</button>
-        <button class="btn" id="sync-push">${UI.icon("upload", 15)} דחיפה עכשיו</button>
-        <div class="spacer row-actions">
-          <button class="btn btn-ghost btn-sm" id="sync-off">ניתוק המכשיר</button>
-        </div>
-      </div>`;
-
-    return UI.card("סנכרון מכשירים", {
-      sub: `${headline} · ${Fmt.escape(Sync.deviceName())}`,
-      actions: `<span class="badge ${tone}">${UI.icon(
-        s.status === "error" ? "cloudOff" : s.pending ? "cloudUp" : "cloud", 13)} ${
-        s.on ? "מחובר" : "מנותק"}</span>`,
-      body,
-    });
-  }
-
-  function wireSync(root, ctx) {
-    const $ = (sel) => root.querySelector(sel);
-    const again = () => render(root, ctx);
-
-    if ($("#sync-show")) {
-      $("#sync-show").addEventListener("change", (e) => {
-        $("#sync-code").type = e.target.checked ? "text" : "password";
-      });
-    }
-    if ($("#sync-make")) {
-      $("#sync-make").addEventListener("click", () => {
-        const field = $("#sync-code");
-        field.value = Sync.makeCode();
-        field.type = "text";
-        const box = $("#sync-show");
-        if (box) box.checked = true;
-        field.focus();
-        field.select();
-        App.toast("קוד חדש הוגרל — כדאי לשמור אותו לפני החיבור");
-      });
-    }
-    if ($("#sync-connect")) {
-      $("#sync-connect").addEventListener("click", async () => {
-        const device = $("#sync-device").value.trim();
-        if (device) Sync.setDevice(device);
-        try {
-          await Sync.connect($("#sync-code").value);
-          App.toast("המכשיר מחובר לסנכרון", "up");
-        } catch (err) {
-          App.toast(err.message, "down");
-        }
-        again();
-      });
-    }
-    [["#sync-pull", () => Sync.pull({ silent: false })],
-     ["#sync-push", () => Sync.push()],
-     ["#sync-take", () => Sync.takeRemote()],
-     ["#sync-keep", () => Sync.keepLocal()]].forEach(([sel, run]) => {
-      if (!$(sel)) return;
-      $(sel).addEventListener("click", async () => {
-        await run();
-        again();
-      });
-    });
-    if ($("#sync-off")) {
-      $("#sync-off").addEventListener("click", () => App.confirm({
-        title: "לנתק את המכשיר מהסנכרון?",
-        body: "הנתונים יישארו במכשיר הזה כמו שהם. הוא פשוט יפסיק לקבל ולשלוח "
-            + "עדכונים, עד שיחובר שוב עם הקוד.",
-        danger: "ניתוק",
-        onConfirm() { Sync.disconnect(); App.toast("המכשיר נותק"); again(); },
-      }));
-    }
-  }
 
   function reconciliation(ctx) {
     const years = Store.years().slice().reverse();
@@ -570,7 +420,6 @@ window.ViewSettings = (function () {
 
     const body = ui.section === "check" ? `${reconciliation(ctx)}${foreignCard()}`
       : ui.section === "edit" ? editors(ctx)
-      : ui.section === "sync" ? syncSection()
       : files;
 
     root.innerHTML = `
@@ -588,7 +437,6 @@ window.ViewSettings = (function () {
     });
 
     if (ui.section === "edit") wireEditors(root, ctx);
-    if (ui.section === "sync") wireSync(root, ctx);
 
     UI.on(root, "[data-customer]", "click",
       (e) => App.openCustomer(e.currentTarget.dataset.customer));

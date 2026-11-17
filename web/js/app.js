@@ -212,8 +212,6 @@ window.App = (function () {
           ${UI.icon("search", 15)}<span>חיפוש לקוח</span>
           <kbd>${navigator.platform.includes("Mac") ? "⌘" : "Ctrl"} K</kbd>
         </button>
-        <button class="btn btn-icon sync-chip" id="sync-chip" hidden
-                aria-label="מצב הסנכרון">${UI.icon("cloud", 17)}</button>
         <button class="btn btn-icon" id="undo-btn" aria-label="ביטול הפעולה האחרונה" hidden>
           ${UI.icon("undo", 17)}</button>
         <button class="btn btn-icon btn-primary" id="open-chat" aria-label="שאלה על הנתונים">
@@ -223,7 +221,6 @@ window.App = (function () {
     top.addEventListener("click", (e) => {
       if (e.target.closest("#open-palette, #open-palette-m")) return openPalette();
       if (e.target.closest("#undo-btn")) return undoLast();
-      if (e.target.closest("#sync-chip")) return go("settings");
       if (e.target.closest("#open-chat")) toggleChat();
     });
   }
@@ -247,34 +244,6 @@ window.App = (function () {
     const undo = $("#undo-btn");
     undo.hidden = !Store.canUndo();
     if (!undo.hidden) undo.title = `ביטול: ${Store.lastAction()}`;
-
-    paintSyncChip();
-  }
-
-  /* הסימון של הסנכרון בכותרת.
-
-     כשהכול מסונכרן אין מה לומר, ולכן אין סימון. הוא מופיע רק כשיש משהו
-     לדעת — ממתין לעלות, אין רשת, או התנגשות שמחכה להכרעה — ולחיצה עליו
-     מגיעה למסך שבו מטפלים בזה. */
-  function paintSyncChip() {
-    const chip = $("#sync-chip");
-    if (!chip) return;
-    const s = Sync.state();
-    const show = {
-      conflict: ["alert", "שני מכשירים שמרו — צריך להכריע", "warn"],
-      error: ["cloudOff", `הסנכרון לא עבר: ${s.error}`, "down"],
-      pending: ["cloudUp", "יש שינוי שעוד לא עלה לענן", ""],
-    };
-    const key = s.status === "conflict" ? "conflict"
-      : s.status === "error" ? "error"
-      : s.pending ? "pending" : null;
-    chip.hidden = !s.on || !key;
-    if (chip.hidden) return;
-    const [icon, title, tone] = show[key];
-    chip.className = `btn btn-icon sync-chip ${tone}`;
-    chip.title = title;
-    chip.setAttribute("aria-label", title);
-    chip.innerHTML = UI.icon(icon, 17);
   }
 
   /** סרגל תחתון בנייד: ארבעה יעדים בלבד, האחרון פותח את השאר. */
@@ -1154,11 +1123,6 @@ window.App = (function () {
     if (merged && merged.years.length) {
       toast(`נוספו נתוני ${merged.years.join(", ")} — העריכות והרישומים שלך נשמרו`, "up");
     }
-
-    // הסנכרון עולה אחרי הציור הראשון: המסך לא ממתין לרשת, ומכשיר בלי
-    // הגדרות או בלי קוד פשוט ממשיך לעבוד מקומית כמו קודם.
-    Sync.init();
-    Sync.onChange(() => { syncHeader(); syncSidebar(); });
   }
 
   return { init, render, go, toast, confirm, openDrawer, closeDrawer, openCustomer,

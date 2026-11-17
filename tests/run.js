@@ -15,13 +15,12 @@ const CHECKS = [
   require("./checks/behaviour"),
   require("./checks/report"),
   require("./checks/import"),
-  require("./checks/sync"),
   require("./checks/layout"),
   require("./checks/a11y"),
   require("./checks/textsize"),
 ];
 
-const NAMES = ["נתונים", "תזכורת", "התנהגות", "דוח", "ייבוא בטלפון", "סנכרון", "פריסה", "נגישות", "גודל טקסט"];
+const NAMES = ["נתונים", "תזכורת", "התנהגות", "דוח", "ייבוא בטלפון", "פריסה", "נגישות", "גודל טקסט"];
 
 (async () => {
   const only = process.argv.slice(2).filter((a) => !a.startsWith("-"));
