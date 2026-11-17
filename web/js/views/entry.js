@@ -397,6 +397,15 @@ window.ViewEntry = (function () {
 
   const isPhone = () => window.innerWidth <= 1000;
 
+  /* סוגי הקבצים שבורר הקבצים של הטלפון מבין. בלעדיהם אייפון מאפיר את
+     הקובץ באפליקציית "קבצים" ואי אפשר לבחור בו כלל. */
+  const XL_TYPES = [
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "application/vnd.ms-excel.sheet.macroEnabled.12",
+    "text/csv", "text/plain", "text/tab-separated-values",
+  ].join(",");
+
   function dropCard() {
     const years = Store.years();
     const options = [...years, years[years.length - 1] + 1];
@@ -412,13 +421,18 @@ window.ViewEntry = (function () {
                <kbd>Ctrl</kbd>+<kbd>V</kbd> בכל מקום במסך`}</div>
           <div class="row-actions drop-actions">
             <button class="btn btn-primary" id="file-pick">${
-              UI.icon("file", 15)} בחירת קובץ מהמחשב</button>
+              UI.icon("file", 15)} ${isPhone() ? "בחירת הקובץ מהטלפון"
+                : "בחירת קובץ מהמחשב"}</button>
           </div>
           <div class="drop-note hint">xlsx או csv · העמודות מזוהות לפי הכותרות
             שלהן, והחודש נקרא מתוך הטבלה</div>
+          <!-- בטלפון בורר הקבצים מסנן לפי סוג ה-MIME ולא לפי הסיומת, וקובץ
+               שהגיע בוואטסאפ או בדוא"ל מגיע אפילו בלי סוג. לכן הרשימה כאן
+               נושאת גם סיומות וגם סוגים — אחרת הקובץ מופיע אפור ואי אפשר
+               לבחור בו, והמסך נראה שבור בלי שום הודעה. -->
           <input type="file" id="file-input" class="visually-hidden"
-                 aria-label="בחירת קובץ מהמחשב"
-                 accept=".xlsx,.xlsm,.csv,.txt,.tsv">
+                 aria-label="בחירת הקובץ מה-ERP"
+                 accept=".xlsx,.xlsm,.csv,.txt,.tsv,${XL_TYPES}">
         </div>
         <div class="drop-fallback hint">
           החודש נקרא מתוך הטבלה. אם אין בה עמודת חודש, השורות ייכנסו ל־

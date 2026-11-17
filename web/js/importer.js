@@ -93,14 +93,66 @@ window.Importer = (function () {
     return null;
   }
 
-  /** טקסט שהודבק → מערך שורות של תאים. */
+  /**
+   * טקסט → רשת תאים.
+   *
+   * שני מקורות נכנסים לכאן ושניהם חייבים לעבוד:
+   *   • הדבקה מאקסל — התאים מופרדים בטאב, ושמות עם פסיקים נשארים שלמים.
+   *   • קובץ csv — פסיק או נקודה-פסיק, עם מרכאות סביב ערך שמכיל מפריד,
+   *     ומרכאה כפולה בתוך מרכאות שמשמעה מרכאה אחת (בע""מ → בע"מ).
+   *
+   * גרסה קודמת פיצלה csv בביטוי רגולרי שחתך רק לפני ספרה או מרכאה. בקובץ
+   * עברי — שבו אחרי הפסיק בא אות — שורת הכותרות כולה נשארה תא אחד, הכותרות
+   * לא זוהו, עמודת החודש אבדה, והשורות נכנסו לחודש ברירת המחדל של המסך
+   * במקום לחודש שבקובץ. ייבוא שקט לחודש הלא נכון הוא הנזק החמור ביותר
+   * שהמסך הזה יכול לגרום, ולכן הפענוח כאן הוא סורק תווים ולא ביטוי רגולרי.
+   */
   function grid(text) {
-    return String(text).split(/\r?\n/)
-      .map((line) => line.replace(/\s+$/, ""))
-      .filter((line) => line.trim())
-      .map((line) => (line.includes("\t") ? line.split("\t")
-        : line.split(/\s*[;|]\s*|,(?=\s*(?:\d|"))/))
-        .map((cell) => cell.replace(/^"|"$/g, "").trim()));
+    const source = String(text).replace(/^\ufeff/, "");   // סימן הסדר של utf-8
+    if (source.includes("\t")) {
+      return source.split(/\r?\n/).filter((line) => line.trim())
+        .map((line) => line.replace(/\s+$/, "").split("\t")
+          .map((cell) => cell.replace(/^"|"$/g, "").trim()));
+    }
+
+    // המפריד נקבע מהשורה הראשונה, מחוץ למרכאות: פסיק, נקודה-פסיק או קו.
+    const first = source.split(/\r?\n/)[0] || "";
+    let quoted = false;
+    const tally = { ",": 0, ";": 0, "|": 0 };
+    for (const ch of first) {
+      if (ch === '"') quoted = !quoted;
+      else if (!quoted && tally[ch] !== undefined) tally[ch] += 1;
+    }
+    const sep = Object.keys(tally).reduce((best, ch) => (
+      tally[ch] > tally[best] ? ch : best), ",");
+
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let inQuotes = false;
+    for (let i = 0; i < source.length; i += 1) {
+      const ch = source[i];
+      if (inQuotes) {
+        if (ch !== '"') { cell += ch; continue; }
+        if (source[i + 1] === '"') { cell += '"'; i += 1; continue; }
+        inQuotes = false;
+        continue;
+      }
+      if (ch === '"') { inQuotes = true; continue; }
+      if (ch === sep) { row.push(cell.trim()); cell = ""; continue; }
+      if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && source[i + 1] === "\n") i += 1;
+        row.push(cell.trim());
+        if (row.some((v) => v !== "")) rows.push(row);
+        row = [];
+        cell = "";
+        continue;
+      }
+      cell += ch;
+    }
+    row.push(cell.trim());
+    if (row.some((v) => v !== "")) rows.push(row);
+    return rows;
   }
 
   /**

@@ -362,7 +362,8 @@ window.ViewSettings = (function () {
                 ${UI.icon("download", 15)} הורדת קובץ מעודכן</button>
               <label class="btn" style="cursor:pointer">
                 ${UI.icon("upload", 15)} ייבוא מקובץ
-                <input type="file" id="xl-import" accept=".xlsx,.xls,.csv" hidden>
+                <input type="file" id="xl-import" hidden
+                       accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
               </label>
             </div>
             <p class="hint" style="margin-top:12px">
@@ -380,7 +381,8 @@ window.ViewSettings = (function () {
               <button class="btn" id="bk-export">${UI.icon("download", 15)} שמירת גיבוי</button>
               <label class="btn" style="cursor:pointer">
                 ${UI.icon("upload", 15)} טעינת גיבוי
-                <input type="file" id="bk-import" accept=".json" hidden>
+                <input type="file" id="bk-import" hidden
+                       accept=".json,application/json,text/json,text/plain">
               </label>
             </div>
             <p class="hint" style="margin-top:12px">
