@@ -85,12 +85,21 @@ window.ViewEntry = (function () {
     saveDrafts();
   }
 
-  /** החודש שאחרי האחרון שיש בו נתונים — מה שסביר שמזינים עכשיו. */
+  /**
+   * החודש שאחרי האחרון שיש בו נתונים — מה שסביר שמזינים עכשיו.
+   *
+   * אבל לעולם לא חודש שעוד לא התחיל. זה בדיוק מה שהכשיל: אחרי שנובמבר
+   * נכנס, הבורר הציע דצמבר, וקובץ בלי עמודת חודש נחת שם.
+   */
   function defaultPeriod() {
     const years = Store.years();
     const year = years[years.length - 1];
     const last = Store.closedMonth(year);
-    return last >= 12 ? { year: year + 1, month: 1 } : { year, month: last + 1 };
+    const next = last >= 12 ? { year: year + 1, month: 1 } : { year, month: last + 1 };
+    const now = new Date();
+    const ahead = next.year > now.getFullYear()
+      || (next.year === now.getFullYear() && next.month > now.getMonth() + 1);
+    return ahead ? { year: now.getFullYear(), month: now.getMonth() + 1 } : next;
   }
 
   /** כל מה שצריך לדעת על לקוח בחודש הנבחר. */

@@ -1123,6 +1123,18 @@ window.App = (function () {
     if (merged && merged.years.length) {
       toast(`נוספו נתוני ${merged.years.join(", ")} — העריכות והרישומים שלך נשמרו`, "up");
     }
+
+    // חודש שעוד לא התחיל אינו יכול להכיל מכירות, ולכן הוא הוסר בטעינה.
+    // נאמר במפורש מה ירד ובכמה, כי מספרים שמשתנים בלי הסבר הם הדבר
+    // שהכי שוחק אמון במערכת כזו.
+    const dropped = Store.state.dropped;
+    if (dropped) {
+      const what = dropped.months
+        .map((m) => `${Fmt.month(m.month)} ${m.year} (${Fmt.money(m.total)})`)
+        .join(", ");
+      toast(`הוסר ${what} — חודש שעוד לא התחיל, והנתונים בו הגיעו מייבוא `
+          + `שנחת בחודש הלא נכון`, "up", { undo: true });
+    }
   }
 
   return { init, render, go, toast, confirm, openDrawer, closeDrawer, openCustomer,

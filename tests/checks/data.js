@@ -72,6 +72,33 @@ async function run(browser, url) {
     notes.push("איחוד לקוחות שומר על סך המחזור ✓");
   }
 
+  /* --- חודש שעוד לא התחיל מוסר בטעינה ואינו נשאר במאגר --- *
+     זו התקלה שקרתה בשטח: קובץ נובמבר נחת גם על דצמבר, וכל העמוד הראשי
+     התנהג כאילו השנה נגמרה. */
+  const future = await page.evaluate(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const target = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
+    const source = Store.sales().filter((s) => s.a > 0).slice(0, 5);
+    source.forEach((s) => Store.setSale(s.c, s.p, target.y, target.m, s.a, s.agent));
+    const planted = Store.sales().filter((s) => s.y === target.y && s.m === target.m).length;
+    const removed = Store.dropFutureSales();
+    const left = Store.sales().filter((s) => s.y === target.y && s.m === target.m).length;
+    return { target, planted, left, removed: removed ? removed.rows : 0,
+             said: removed ? removed.months.map((x) => `${x.month}/${x.year}`) : [] };
+  });
+  if (!future.planted) {
+    problems.push("לא ניתן היה לשתול חודש עתידי לבדיקה");
+  } else if (future.left) {
+    problems.push(`${future.left} שורות נשארו ב-${future.target.m}/${future.target.y}`);
+  } else {
+    notes.push(`חודש עתידי (${future.said.join(", ")}) הוסר, ${
+      future.removed} שורות ✓`);
+  }
+  // בלי undo: ההסרה כבר החזירה את המאגר למצבו, וביטול היה מחזיר דווקא
+  // את השורות השתולות ומשבש את מה שנבדק אחריו.
+
   /* --- הפסיקה לפי ההיסטוריה של הלקוח עצמו עומדת בכללים שהיא מצהירה עליהם --- */
   const verdicts = await page.evaluate(() => {
     const view = Metrics.overview({ year: App.ctx.year, agent: "all" });

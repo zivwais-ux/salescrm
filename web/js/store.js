@@ -194,6 +194,41 @@ window.Store = (function () {
       return () => listeners.delete(fn);
     },
 
+    /**
+     * מסיר תנועות שנרשמו בחודש שעדיין לא התחיל.
+     *
+     * מכירה בחודש עתידי אינה קיימת — היא תמיד תוצאה של ייבוא שנחת בחודש
+     * הלא נכון. זה קרה בשטח: קובץ בלי עמודת חודש נכנס לחודש הריק הבא,
+     * ונובמבר הופיע שוב כדצמבר. הייבוא כבר אינו מנחש חודש, אבל מי שכבר
+     * נפל בזה מחזיק את השורות בדפדפן שלו, ואין דרך אחרת להגיע אליהן.
+     *
+     * החודש הנוכחי אינו נספר — הוא רץ, ויכולים להיות בו נתונים חלקיים.
+     * מה שנמחק נאמר במפורש, והמחיקה נכנסת להיסטוריית הביטול כמו כל שינוי.
+     */
+    dropFutureSales(today = new Date()) {
+      const year = today.getFullYear();
+      const month = today.getMonth() + 1;
+      const future = (s) => s.y > year || (s.y === year && s.m > month);
+      const doomed = [...state.sales.values()].filter(future);
+      if (!doomed.length) return null;
+
+      const months = [...new Set(doomed.map((s) => `${s.y}|${s.m}`))]
+        .map((id) => {
+          const [y, m] = id.split("|").map(Number);
+          const rows = doomed.filter((s) => s.y === y && s.m === m);
+          return { year: y, month: m, rows: rows.length,
+                   total: rows.reduce((sum, s) => sum + s.a, 0) };
+        })
+        .sort((a, b) => a.year - b.year || a.month - b.month);
+
+      commit("הסרת חודש עתידי", () => {
+        [...state.sales.entries()].forEach(([key, sale]) => {
+          if (future(sale)) state.sales.delete(key);
+        });
+      });
+      return { months, rows: doomed.length };
+    },
+
     init() {
       const saved = readStorage(cfg.storageKey);
       if (saved) {
@@ -205,6 +240,8 @@ window.Store = (function () {
       if (state.seedVersion < (seed.seed_version || 1)) {
         state.merged = saved ? mergeSeed() : null;
       }
+      // נעשה כאן, לפני הציור הראשון, כדי שאיש לא יראה חודש שלא קיים.
+      state.dropped = api.dropFutureSales();
       persist();
       notify();
       return state;

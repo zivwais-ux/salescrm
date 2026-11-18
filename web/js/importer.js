@@ -67,6 +67,14 @@ window.Importer = (function () {
     return taken.has("customer_no") && taken.has("amount") ? found : null;
   }
 
+  /** חודש שטרם התחיל. החודש הנוכחי עצמו כן — הוא רץ, ויש בו נתונים. */
+  function ahead(period, today = new Date()) {
+    if (!period) return false;
+    const year = today.getFullYear();
+    return period.year > year
+      || (period.year === year && period.month > today.getMonth() + 1);
+  }
+
   /** "ספט-2026", "09/2026", "2026-09", או מספר תאריך של אקסל. */
   function readPeriod(value) {
     if (value === null || value === undefined) return null;
@@ -187,6 +195,13 @@ window.Importer = (function () {
             : "אין חודש" });
           return;
         }
+        // מכירה בחודש שעוד לא התחיל אינה קיימת, והיא תמיד סימן שהחודש
+        // נקרא לא נכון. היא נעצרת כאן ונאמרת, במקום להיכנס בשקט.
+        if (ahead(period)) {
+          problems.push({ line: line.join(" · "),
+                          why: `${Fmt.month(period.month)} ${period.year} עוד לא התחיל` });
+          return;
+        }
         rows.push({
           c: customer,
           p: String(row.payer_no || customer).trim(),
@@ -212,6 +227,11 @@ window.Importer = (function () {
       }
       if (!fallback) {
         problems.push({ line: line.join(" · "), why: "אין חודש" });
+        return;
+      }
+      if (ahead(fallback)) {
+        problems.push({ line: line.join(" · "),
+                        why: `${Fmt.month(fallback.month)} ${fallback.year} עוד לא התחיל` });
         return;
       }
       monthSource = monthSource === "file" ? "mixed" : "screen";
