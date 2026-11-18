@@ -523,10 +523,44 @@ window.ViewEntry = (function () {
       .map((x) => `<span class="chip">${Fmt.escape(x.name)}</span>`).join("")
       + (list.length > 40 ? `<span class="hint"> ועוד ${list.length - 40}</span>` : "");
 
+    /* החודש שלא הגיע מהקובץ.
+
+       זו התקלה היקרה ביותר במסך הזה, והיא קרתה: קובץ בלי עמודת חודש נכנס
+       לחודש שהבורר הציע — החודש הריק הבא — ונובמבר הופיע שוב כדצמבר, עם
+       אותו סכום בדיוק ובלי מילה. מכאן הבחירה מפורשת: רואים מאיזה חודש
+       מדובר, בוחרים אותו, והכפתור אומר את שמו. */
+    const assumed = p.monthSource !== "file" && months.length;
+    const ask = !assumed ? "" : `
+      <div class="plan-ask">
+        <div class="plan-ask-head">
+          ${UI.icon("alert", 16)}
+          <div>
+            <b>בקובץ אין עמודת חודש</b>
+            <div class="hint">${p.monthSource === "mixed"
+              ? "חלק מהשורות נושאות חודש וחלק לא. בדקו את הקובץ לפני העדכון."
+              : "לכן צריך לומר למערכת לאיזה חודש הוא שייך. זה לא ינוחש."}</div>
+          </div>
+        </div>
+        <div class="row-actions">
+          <label class="field"><span>החודש</span>
+            <select class="select" id="plan-month">
+              ${Fmt.MONTHS.map((name, i) => `<option value="${i + 1}" ${
+                i + 1 === months[0].month ? "selected" : ""}>${name}</option>`).join("")}
+            </select></label>
+          <label class="field"><span>שנה</span>
+            <select class="select" id="plan-year">
+              ${[...new Set([...Store.years(), months[0].year, ui.year])]
+                .filter(Boolean).sort().map((y) => `<option ${
+                  y === months[0].year ? "selected" : ""}>${y}</option>`).join("")}
+            </select></label>
+        </div>
+      </div>`;
+
     return UI.card("מה ייכנס למערכת", {
       sub: ui.planFrom,
       flush: true,
       body: `
+        ${ask}
         <div class="plan-head">
           <div class="plan-fact">
             <span class="hint">שורות בקובץ</span>
@@ -565,7 +599,10 @@ window.ViewEntry = (function () {
         </div>` : ""}
         <div class="plan-actions">
           <button class="btn btn-primary btn-lg" id="plan-apply" ${
-            p.rowCount ? "" : "disabled"}>${UI.icon("check", 16)} עדכון המערכת</button>
+            p.rowCount ? "" : "disabled"}>${UI.icon("check", 16)} ${
+            months.length === 1
+              ? `עדכון ${Fmt.month(months[0].month)} ${months[0].year}`
+              : "עדכון המערכת"}</button>
           <button class="btn" id="plan-cancel">ביטול</button>
         </div>`,
     });
@@ -590,6 +627,8 @@ window.ViewEntry = (function () {
         : await Importer.fromFile(source, fallback);
       ui.plan = planned.rowCount || planned.problems.length ? planned : null;
       ui.planFrom = typeof source === "string" ? "מטבלה שהודבקה" : source.name;
+      // נשמר כדי שאפשר יהיה לקרוא אותו שוב אם מתקנים את החודש בתצוגה.
+      ui.planSource = source;
       if (!ui.plan) ui.error = "לא נמצאו שורות מכירה בקובץ. צריך עמודת לקוח ועמודת סכום.";
     } catch (err) {
       ui.plan = null;
@@ -605,6 +644,7 @@ window.ViewEntry = (function () {
     Importer.apply(p, label);
     const total = Metrics.sum(p.months.map((m) => m.total));
     ui.plan = null;
+    ui.planSource = null;
     ui.paste = "";
     if (p.months.length) {
       ui.year = p.months[p.months.length - 1].year;
@@ -649,11 +689,27 @@ window.ViewEntry = (function () {
       });
     }
 
+    /* שינוי החודש בתצוגה המקדימה מצייר אותה מחדש מול החודש החדש: כמה
+       שורות יוחלפו, מה ההפרש, ומי זז — כדי שמה שמאשרים יהיה מה שיקרה. */
+    const retarget = () => {
+      const month = Number(root.querySelector("#plan-month").value);
+      const year = Number(root.querySelector("#plan-year").value);
+      ui.month = month;
+      ui.year = year;
+      if (ui.planSource) read(root, ctx, ui.planSource);
+      else render(root, ctx);
+    };
+    ["#plan-month", "#plan-year"].forEach((sel) => {
+      const node = root.querySelector(sel);
+      if (node) node.addEventListener("change", retarget);
+    });
+
     const apply = root.querySelector("#plan-apply");
     if (apply) {
       apply.addEventListener("click", () => applyPlan(root, ctx));
       root.querySelector("#plan-cancel").addEventListener("click", () => {
         ui.plan = null;
+        ui.planSource = null;
         render(root, ctx);
       });
     }

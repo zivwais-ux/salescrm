@@ -14,6 +14,19 @@ const os = require("os");
 const path = require("path");
 const { open, go } = require("../lib/harness");
 
+/** אותו חודש, בלי עמודת החודש — כפי שייצוא של חודש בודד נראה. */
+async function csvWithoutMonth(page, year, month) {
+  const built = await csvOfMonth(page, year, month);
+  const lines = fs.readFileSync(built.file, "utf8").split("\n");
+  const cut = (line) => {
+    const cells = line.split(",");
+    return cells.slice(0, 6).concat(cells.slice(7)).join(",");
+  };
+  const file = built.file.replace(/\.csv$/, "-nomonth.csv");
+  fs.writeFileSync(file, lines.map((l) => (l.trim() ? cut(l) : l)).join("\n"), "utf8");
+  return { ...built, file };
+}
+
 /** בונה csv מתוך חודש אמיתי שכבר במאגר, כפי ש-ERP מייצא אותו. */
 async function csvOfMonth(page, year, month) {
   const rows = await page.evaluate(([y, m]) => Store.sales()
@@ -88,6 +101,50 @@ async function run(browser, url) {
     notes.push(`csv עברי של ${expected.count} שורות נקרא לחודש הנכון, ${
       expected.total.toLocaleString("he-IL")} ₪ ✓`);
   }
+
+  /* --- קובץ בלי עמודת חודש אינו מנוחש --- *
+     זו התקלה שקרתה בשטח: נובמבר נכנס, ואותו סכום בדיוק הופיע גם בדצמבר,
+     כי הבורר הציע את החודש הריק הבא והקובץ נכנס לשם בשקט. */
+  const blind = await csvWithoutMonth(page, 2026, 9);
+  // התצוגה המקדימה הקודמת עדיין פתוחה, ושדה הקובץ חוזר רק אחרי ביטול
+  await page.click("#plan-cancel");
+  await page.waitForTimeout(400);
+  const before = await page.evaluate(() => Store.sales()
+    .filter((s) => s.y === 2026 && s.m === 10).length);
+  await page.setInputFiles("#file-input", blind.file);
+  await page.waitForTimeout(1200);
+
+  const asked = await page.evaluate(() => ({
+    ask: !!document.querySelector(".plan-ask"),
+    button: (document.querySelector("#plan-apply") || {}).textContent || "",
+  }));
+  if (!asked.ask) {
+    problems.push("קובץ בלי עמודת חודש לא עצר לשאלה");
+  } else if (!/עדכון \S+ \d{4}/.test(asked.button.trim())) {
+    problems.push(`הכפתור אינו אומר לאיזה חודש: "${asked.button.trim()}"`);
+  } else {
+    notes.push("קובץ בלי חודש עוצר, שואל, והכפתור נוקב בחודש ✓");
+  }
+
+  // בחירת חודש אחר חייבת לצייר מחדש את התוכנית, ולא רק את הכותרת
+  await page.selectOption("#plan-month", "9");
+  await page.waitForTimeout(1200);
+  const retargeted = await page.evaluate(() => (
+    (document.querySelector("#plan-apply") || {}).textContent || ""));
+  if (!/ספטמבר/.test(retargeted)) {
+    problems.push(`שינוי החודש לא נקלט: "${retargeted.trim()}"`);
+  } else {
+    await page.click("#plan-apply");
+    await page.waitForTimeout(900);
+    const after = await page.evaluate(() => Store.sales()
+      .filter((s) => s.y === 2026 && s.m === 10).length);
+    if (after !== before) {
+      problems.push(`הייבוא נגע באוקטובר: ${before} שורות → ${after}`);
+    } else {
+      notes.push("אחרי בחירת החודש הייבוא נכנס רק אליו ✓");
+    }
+  }
+  fs.rmSync(path.dirname(blind.file), { recursive: true, force: true });
 
   problems.push(...page.errors.map((e) => `שגיאת דף: ${e}`));
   await page.context().close();

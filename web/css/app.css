@@ -2475,3 +2475,17 @@ svg text { font-family: var(--font-num); }
 @keyframes ch-fade { from { opacity: 0; } }
 @keyframes ch-cell { from { opacity: 0; transform: scale(.82); } }
 @keyframes ch-grow-x { from { transform: scaleX(0); } }
+
+/* ------------------------------------------ החודש שלא הגיע מהקובץ --
+   השאלה הזו יושבת בראש התצוגה המקדימה ולא בשוליה, כי בלעדיה הקובץ נכנס
+   לחודש שאיש לא בחר — וזה כבר קרה פעם אחת. */
+.plan-ask {
+  display: grid; gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--warn-soft);
+  border-bottom: 1px solid var(--warn-line);
+}
+.plan-ask-head { display: flex; gap: var(--sp-3); align-items: flex-start; }
+.plan-ask-head svg { color: var(--warn-ink); flex: none; margin-top: 1px; }
+.plan-ask-head b { font-size: calc(13.5px * var(--fs-scale)); }
+.plan-ask .hint { margin-top: 2px; }

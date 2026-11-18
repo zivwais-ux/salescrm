@@ -163,6 +163,10 @@ window.Importer = (function () {
     let header = null;
     const rows = [];
     const problems = [];
+    // מאיפה הגיע החודש. "file" אומר שהקובץ אמר אותו בעצמו; "screen" אומר
+    // שהוא נלקח מהבורר שבמסך — וזה בדיוק המקרה שבו מישהו חייב לאשר אותו
+    // במפורש, כי אחרת נובמבר נכנס לדצמבר בלי שאיש יבחין.
+    let monthSource = null;
 
     cells.forEach((line) => {
       if (!header) {
@@ -173,7 +177,10 @@ window.Importer = (function () {
         const row = {};
         Object.entries(header).forEach(([i, field]) => { row[field] = line[i]; });
         const amount = Math.round(Fmt.parseAmount(row.amount) * 100) / 100;
-        const period = readPeriod(row.period) || fallback;
+        const own = readPeriod(row.period);
+        const period = own || fallback;
+        if (own) monthSource = monthSource === "screen" ? "mixed" : "file";
+        else if (period) monthSource = monthSource === "file" ? "mixed" : "screen";
         const customer = String(row.customer_no || "").trim();
         if (!customer || !period) {
           problems.push({ line: line.join(" · "), why: !customer ? "אין מספר לקוח"
@@ -207,13 +214,14 @@ window.Importer = (function () {
         problems.push({ line: line.join(" · "), why: "אין חודש" });
         return;
       }
+      monthSource = monthSource === "file" ? "mixed" : "screen";
       const no = party ? party.no : digits;
       rows.push({ c: no, p: no, name: party ? party.name : label.replace(digits, "").trim(),
                   payerName: "", agent: "", agentName: "", cur: "",
                   y: fallback.year, m: fallback.month, a: amount });
     });
 
-    return { rows, problems };
+    return { rows, problems, monthSource };
   }
 
   const normal = (text) => String(text).replace(/["'`״׳()\-]/g, "")
@@ -232,7 +240,7 @@ window.Importer = (function () {
    * חודש שמגיע בקובץ מחליף את החודש במלואו — זו המשמעות של ייצוא מחדש של
    * חודש, ואחרת שורות ישנות היו נשארות מתחת לחדשות.
    */
-  function plan(rows, problems) {
+  function plan(rows, problems, monthSource) {
     const byMonth = new Map();
     rows.forEach((row) => {
       const id = `${row.y}|${row.m}`;
@@ -299,6 +307,9 @@ window.Importer = (function () {
       parties: [...parties.values()],
       agents: [...agents.values()],
       problems: problems || [],
+      // "file" — החודש כתוב בקובץ. "screen" — הוא נלקח מהבורר ולכן טעון
+      // אישור. "mixed" — חלק מהשורות כך וחלק אחרת, וזה כמעט תמיד תקלה.
+      monthSource: monthSource || null,
       rowCount: rows.length,
       total: Metrics.sum(rows.map((r) => r.a)),
     };
@@ -306,8 +317,8 @@ window.Importer = (function () {
 
   /** טקסט שהודבק → תוכנית מוכנה לאישור. */
   function fromText(text, fallback) {
-    const { rows, problems } = rowsFrom(grid(text), fallback);
-    return plan(rows, problems);
+    const { rows, problems, monthSource } = rowsFrom(grid(text), fallback);
+    return plan(rows, problems, monthSource);
   }
 
   /* ------------------------------------------------------ קריאת xlsx מקומית
@@ -447,8 +458,8 @@ window.Importer = (function () {
     } catch (err) {
       cells = await cellsFromLibrary(buffer);
     }
-    const { rows, problems } = rowsFrom(cells, fallback);
-    return plan(rows, problems);
+    const { rows, problems, monthSource } = rowsFrom(cells, fallback);
+    return plan(rows, problems, monthSource);
   }
 
   /** מאשר את התוכנית: לקוחות, סוכנים, והחלפת החודשים — בפעולת ביטול אחת. */
