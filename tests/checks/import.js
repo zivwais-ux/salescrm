@@ -146,6 +146,30 @@ async function run(browser, url) {
   }
   fs.rmSync(path.dirname(blind.file), { recursive: true, force: true });
 
+  /* --- אותו קובץ לחודש שני: נאמר לפני האישור --- */
+  const again = await csvWithoutMonth(page, 2026, 9);
+  // התצוגה הקודמת אולי כבר אושרה, ואז אין מה לבטל
+  if (await page.$("#plan-cancel")) {
+    await page.click("#plan-cancel");
+    await page.waitForTimeout(400);
+  }
+  await page.setInputFiles("#file-input", again.file);
+  await page.waitForTimeout(1200);
+  await page.selectOption("#plan-month", "8");       // חודש שעבר, אבל הנתונים הם של ספטמבר
+  await page.waitForTimeout(1200);
+  const twin = await page.evaluate(() => ({
+    shown: !!document.querySelector(".plan-ask-danger"),
+    text: (document.querySelector(".plan-ask-danger") || {}).innerText || "",
+  }));
+  fs.rmSync(path.dirname(again.file), { recursive: true, force: true });
+  if (!twin.shown) {
+    problems.push("אותם נתונים לחודש שני לא הוצגו כחשודים");
+  } else if (!/ספטמבר/.test(twin.text)) {
+    problems.push(`האזהרה אינה נוקבת בחודש התאום: "${twin.text.replace(/\s+/g, " ")}"`);
+  } else {
+    notes.push("אותם נתונים לחודש שני נאמרים לפני האישור ✓");
+  }
+
   problems.push(...page.errors.map((e) => `שגיאת דף: ${e}`));
   await page.context().close();
   return { name: "ייבוא בטלפון", problems, notes };

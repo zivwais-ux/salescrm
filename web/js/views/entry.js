@@ -539,6 +539,25 @@ window.ViewEntry = (function () {
        אותו סכום בדיוק ובלי מילה. מכאן הבחירה מפורשת: רואים מאיזה חודש
        מדובר, בוחרים אותו, והכפתור אומר את שמו. */
     const assumed = p.monthSource !== "file" && months.length;
+
+    /* אותו חודש פעמיים.
+
+       גם כשהחודש נבחר ביד אפשר לבחור לא נכון, ואז אותם לקוחות ואותם
+       סכומים נכנסים לחודש שני. זה בדיוק מה שקרה בשטח, ולכן זה נאמר
+       לפני האישור ולא מתגלה אחר כך בגרף. */
+    const twins = months.filter((m) => m.twin);
+    const twinWarning = !twins.length ? "" : `
+      <div class="plan-ask plan-ask-danger">
+        <div class="plan-ask-head">
+          ${UI.icon("alert", 16)}
+          <div>
+            <b>אותם נתונים כבר רשומים בחודש אחר</b>
+            <div class="hint">${twins.map((m) => `${Fmt.month(m.month)} ${m.year} זהה ל${
+              Fmt.month(m.twin.month)} ${m.twin.year} — אותם לקוחות, אותם סכומים`).join(" · ")}.
+              אם זה אותו קובץ שנכנס פעמיים, בטלו ובדקו את החודש.</div>
+          </div>
+        </div>
+      </div>`;
     const ask = !assumed ? "" : `
       <div class="plan-ask">
         <div class="plan-ask-head">
@@ -570,6 +589,7 @@ window.ViewEntry = (function () {
       flush: true,
       body: `
         ${ask}
+        ${twinWarning}
         <div class="plan-head">
           <div class="plan-fact">
             <span class="hint">שורות בקובץ</span>

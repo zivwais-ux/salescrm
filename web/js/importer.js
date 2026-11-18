@@ -297,8 +297,31 @@ window.Importer = (function () {
           .filter((c) => Math.abs(c.delta) > 0.005)
           .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 
+        /* האם מה שנכנס זהה לחודש אחר שכבר שמור.
+
+           זו החתימה של הטעות היקרה: אותו קובץ נכנס פעמיים, לשני חודשים.
+           גם כשהחודש נבחר ביד אפשר לבחור לא נכון, ולכן ההשוואה היא על
+           התוכן — אותם לקוחות, אותם סכומים — ולא על הסכום בלבד, ששני
+           חודשים יכולים לחלוק במקרה. */
+        const signature = (list) => [...list.reduce((map, r) => {
+          map.set(r.c, Math.round(((map.get(r.c) || 0) + r.a) * 100) / 100);
+          return map;
+        }, new Map())].sort((x, y) => (x[0] < y[0] ? -1 : 1))
+          .map(([no, sum]) => `${no}:${sum}`).join("|");
+        const mine = signature(entry.rows);
+        const twin = mine && [...new Set(Store.sales()
+          .filter((s) => !(s.y === entry.year && s.m === entry.month))
+          .map((s) => `${s.y}|${s.m}`))]
+          .map((id) => {
+            const [y, m] = id.split("|").map(Number);
+            return { year: y, month: m,
+                     sig: signature(Store.sales().filter((s) => s.y === y && s.m === m)) };
+          })
+          .find((other) => other.sig === mine) || null;
+
         return {
           ...entry,
+          twin: twin ? { year: twin.year, month: twin.month } : null,
           total: Metrics.sum(entry.rows.map((r) => r.a)),
           currentTotal: Metrics.sum(current.map((s) => s.a)),
           currentRows: current.length,

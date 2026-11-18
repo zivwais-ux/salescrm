@@ -2489,3 +2489,5 @@ svg text { font-family: var(--font-num); }
 .plan-ask-head svg { color: var(--warn-ink); flex: none; margin-top: 1px; }
 .plan-ask-head b { font-size: calc(13.5px * var(--fs-scale)); }
 .plan-ask .hint { margin-top: 2px; }
+.plan-ask-danger { background: var(--down-soft); border-bottom-color: var(--down-line); }
+.plan-ask-danger .plan-ask-head svg { color: var(--down); }
